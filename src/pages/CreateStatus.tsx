@@ -4,64 +4,53 @@ import { motion } from "framer-motion";
 import { Loader2, X, AlertCircle, CheckCircle } from "lucide-react";
 import { AuroraGradient, StarfieldParticles, CinematicButton } from "@/components/eku";
 import { Progress } from "@/components/ui/progress";
-import { getJob } from "@/lib/jobStore";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const STAGES = ["Writing story...", "Designing scenes...", "Preparing your adventure..."];
+const STAGES = ["Writing story with AI...", "Designing scenes...", "Preparing your adventure..."];
 
 export default function CreateStatus() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const jobId = searchParams.get("jobId");
-  const [status, setStatus] = useState<"queued" | "running" | "done" | "failed">("queued");
-  const [progress, setProgress] = useState(0);
+  const storyId = searchParams.get("storyId");
+  const [status, setStatus] = useState<"generating" | "done" | "failed">("generating");
+  const [progress, setProgress] = useState(20);
   const [stage, setStage] = useState(0);
-  const [cancelled, setCancelled] = useState(false);
 
   useEffect(() => {
-    if (!jobId) {
-      navigate("/create");
-      return;
-    }
+    if (!storyId) { navigate("/create"); return; }
 
-    const poll = setInterval(() => {
-      if (cancelled) return;
-      const job = getJob(jobId);
-      if (!job) {
-        setStatus("failed");
-        clearInterval(poll);
-        return;
-      }
+    // Animate progress stages for UX
+    const stageTimer1 = setTimeout(() => { setStage(1); setProgress(50); }, 3000);
+    const stageTimer2 = setTimeout(() => { setStage(2); setProgress(75); }, 8000);
 
-      setStatus(job.status);
+    const poll = setInterval(async () => {
+      const { data, error } = await supabase
+        .from("stories")
+        .select("status")
+        .eq("id", storyId)
+        .single();
 
-      if (job.status === "queued") {
-        setProgress(20);
-        setStage(0);
-      } else if (job.status === "running") {
-        setProgress(60);
-        setStage(1);
-      } else if (job.status === "done") {
+      if (error || !data) { setStatus("failed"); clearInterval(poll); return; }
+
+      if (data.status === "done") {
+        setStatus("done");
         setProgress(100);
         setStage(2);
         toast.success("Adventure ready!");
-        setTimeout(() => navigate(`/adventure/${jobId}`), 1000);
+        setTimeout(() => navigate(`/adventure/${storyId}`), 1000);
         clearInterval(poll);
-      } else if (job.status === "failed") {
-        toast.error("Generation failed");
+      } else if (data.status === "failed") {
+        setStatus("failed");
+        toast.error("Generation failed. Please try again.");
         clearInterval(poll);
       }
-    }, 500);
+    }, 2000);
 
-    return () => clearInterval(poll);
-  }, [jobId, navigate, cancelled]);
+    return () => { clearInterval(poll); clearTimeout(stageTimer1); clearTimeout(stageTimer2); };
+  }, [storyId, navigate]);
 
-  const handleCancel = () => {
-    setCancelled(true);
-    navigate("/create");
-  };
-
-  if (!jobId) return null;
+  if (!storyId) return null;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center">
@@ -69,11 +58,7 @@ export default function CreateStatus() {
       <StarfieldParticles count={40} />
 
       <div className="relative z-10 w-full max-w-lg mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass-card p-8 text-center"
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-8 text-center">
           {status === "failed" ? (
             <>
               <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-6" />
@@ -89,18 +74,11 @@ export default function CreateStatus() {
             </>
           ) : (
             <>
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-16 h-16 mx-auto mb-6"
-              >
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-16 h-16 mx-auto mb-6">
                 <Loader2 className="w-full h-full text-primary" />
               </motion.div>
-
               <h2 className="font-heading text-2xl font-bold mb-2">Creating Your Adventure</h2>
-              <p className="text-muted-foreground mb-8">Please wait while we craft something magical...</p>
-
-              {/* Progress stages */}
+              <p className="text-muted-foreground mb-8">AI is crafting something magical...</p>
               <div className="space-y-4 mb-8">
                 {STAGES.map((s, i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -108,19 +86,13 @@ export default function CreateStatus() {
                       i < stage ? "bg-secondary text-secondary-foreground" :
                       i === stage ? "bg-primary text-primary-foreground animate-pulse" :
                       "bg-muted text-muted-foreground"
-                    }`}>
-                      {i < stage ? "✓" : i + 1}
-                    </div>
+                    }`}>{i < stage ? "✓" : i + 1}</div>
                     <span className={i <= stage ? "text-foreground" : "text-muted-foreground"}>{s}</span>
                   </div>
                 ))}
               </div>
-
               <Progress value={progress} className="mb-6" />
-
-              <CinematicButton variant="ghost" onClick={handleCancel}>
-                <X className="w-4 h-4 mr-2" /> Cancel
-              </CinematicButton>
+              <CinematicButton variant="ghost" onClick={() => navigate("/create")}><X className="w-4 h-4 mr-2" /> Cancel</CinematicButton>
             </>
           )}
         </motion.div>

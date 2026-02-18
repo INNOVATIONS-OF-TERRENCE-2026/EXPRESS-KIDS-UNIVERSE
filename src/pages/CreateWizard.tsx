@@ -10,9 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ChildProfile, createJob } from "@/lib/jobStore";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { saveDraft, loadDraft, clearDraft } from "@/lib/storage";
 import { toast } from "sonner";
+
+export interface ChildProfile {
+  childName: string;
+  age: number;
+  readingLevel: string;
+  pronouns?: string;
+  familyFriends: Array<{ name: string; role: string }>;
+  favorites: string[];
+  personality: { brave: number; curious: number; funny: number; kind: number; adventurous: number };
+  mood: string;
+  theme: string;
+  setting: string;
+  lessonFocus?: string;
+}
 
 const STEPS = ["Child Basics", "Family & Friends", "Favorites & Traits", "Adventure Setup"];
 const READING_LEVELS = ["Preschool", "Early Reader", "Chapter"];
@@ -38,6 +53,7 @@ const defaultProfile: ChildProfile = {
 
 export default function CreateWizard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<ChildProfile>(defaultProfile);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,12 +78,39 @@ export default function CreateWizard() {
     return true;
   };
 
-  const handleGenerate = () => {
-    if (!canProceed()) return;
+  const handleGenerate = async () => {
+    if (!canProceed() || !user) return;
     setIsLoading(true);
-    const jobId = createJob(profile);
-    clearDraft();
-    setTimeout(() => navigate(`/create/status?jobId=${jobId}`), 1500);
+
+    try {
+      // Create story record in DB
+      const { data: story, error: insertErr } = await supabase
+        .from("stories")
+        .insert({
+          user_id: user.id,
+          title: `${profile.childName}'s ${profile.theme}`,
+          theme: profile.theme,
+          child_name: profile.childName,
+          reading_level: profile.readingLevel,
+          child_profile: profile as any,
+          status: "generating",
+        })
+        .select()
+        .single();
+
+      if (insertErr || !story) throw new Error(insertErr?.message || "Failed to create story");
+
+      // Kick off AI generation (fire and forget — status page will poll)
+      supabase.functions.invoke("generate-story", {
+        body: { profile, storyId: story.id },
+      });
+
+      clearDraft();
+      navigate(`/create/status?storyId=${story.id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to start generation");
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -98,11 +141,7 @@ export default function CreateWizard() {
   };
 
   const getTagline = () => {
-    const moodMap: Record<string, string> = {
-      Calm: "A peaceful journey",
-      Excited: "An epic adventure",
-      Silly: "A hilarious quest",
-    };
+    const moodMap: Record<string, string> = { Calm: "A peaceful journey", Excited: "An epic adventure", Silly: "A hilarious quest" };
     const base = moodMap[profile.mood] || "An amazing adventure";
     return profile.lessonFocus ? `${base} about ${profile.lessonFocus.toLowerCase()}` : base;
   };
@@ -114,13 +153,11 @@ export default function CreateWizard() {
 
       <div className="relative z-10 py-8 px-4">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="text-center mb-8">
             <h1 className="font-heading text-3xl md:text-4xl font-bold aurora-text mb-2">Adventure Forge</h1>
             <p className="text-muted-foreground">Create a personalized story for your child</p>
           </div>
 
-          {/* Progress Stepper */}
           <div className="flex justify-center mb-8">
             <div className="flex items-center gap-2">
               {STEPS.map((s, i) => (
@@ -132,29 +169,17 @@ export default function CreateWizard() {
                       i === step ? "bg-primary text-primary-foreground glow-button" :
                       "bg-muted text-muted-foreground"
                     }`}
-                  >
-                    {i + 1}
-                  </motion.div>
-                  {i < STEPS.length - 1 && (
-                    <div className={`w-8 h-1 mx-1 rounded ${i < step ? "bg-primary" : "bg-muted"}`} />
-                  )}
+                  >{i + 1}</motion.div>
+                  {i < STEPS.length - 1 && <div className={`w-8 h-1 mx-1 rounded ${i < step ? "bg-primary" : "bg-muted"}`} />}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="grid lg:grid-cols-2 gap-8 items-start">
-            {/* Form */}
             <div className="glass-card p-6 md:p-8">
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
                   <h2 className="font-heading text-xl font-bold mb-6 flex items-center gap-2">
                     {step === 0 && <><User className="w-5 h-5 text-primary" /> Child Basics</>}
                     {step === 1 && <><Users className="w-5 h-5 text-primary" /> Family & Friends</>}
@@ -164,27 +189,10 @@ export default function CreateWizard() {
 
                   {step === 0 && (
                     <div className="space-y-6">
-                      <div>
-                        <Label>Child's Name *</Label>
-                        <Input value={profile.childName} onChange={e => updateProfile({ childName: e.target.value })} placeholder="Enter name" className="mt-2" />
-                      </div>
-                      <div>
-                        <Label>Age (3-12) *</Label>
-                        <Input type="number" min={3} max={12} value={profile.age} onChange={e => updateProfile({ age: parseInt(e.target.value) || 5 })} className="mt-2" />
-                      </div>
-                      <div>
-                        <Label>Reading Level</Label>
-                        <Select value={profile.readingLevel} onValueChange={v => updateProfile({ readingLevel: v })}>
-                          <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {READING_LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Pronouns (optional)</Label>
-                        <Input value={profile.pronouns} onChange={e => updateProfile({ pronouns: e.target.value })} placeholder="e.g., she/her" className="mt-2" />
-                      </div>
+                      <div><Label>Child's Name *</Label><Input value={profile.childName} onChange={e => updateProfile({ childName: e.target.value })} placeholder="Enter name" className="mt-2" /></div>
+                      <div><Label>Age (3-12) *</Label><Input type="number" min={3} max={12} value={profile.age} onChange={e => updateProfile({ age: parseInt(e.target.value) || 5 })} className="mt-2" /></div>
+                      <div><Label>Reading Level</Label><Select value={profile.readingLevel} onValueChange={v => updateProfile({ readingLevel: v })}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>{READING_LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent></Select></div>
+                      <div><Label>Pronouns (optional)</Label><Input value={profile.pronouns} onChange={e => updateProfile({ pronouns: e.target.value })} placeholder="e.g., she/her" className="mt-2" /></div>
                     </div>
                   )}
 
@@ -193,114 +201,46 @@ export default function CreateWizard() {
                       <p className="text-sm text-muted-foreground">Add up to 6 family members or friends to appear in the story.</p>
                       <div className="flex gap-2">
                         <Input value={newFriend.name} onChange={e => setNewFriend(p => ({ ...p, name: e.target.value }))} placeholder="Name" className="flex-1" />
-                        <Select value={newFriend.role} onValueChange={v => setNewFriend(p => ({ ...p, role: v }))}>
-                          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                          <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <Select value={newFriend.role} onValueChange={v => setNewFriend(p => ({ ...p, role: v }))}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
                         <Button onClick={addFriend} disabled={!newFriend.name || profile.familyFriends.length >= 6}>Add</Button>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.familyFriends.map((f, i) => (
-                          <Badge key={i} variant="secondary" className="cursor-pointer" onClick={() => removeFriend(i)}>
-                            {f.name} ({f.role}) ×
-                          </Badge>
-                        ))}
-                      </div>
+                      <div className="flex flex-wrap gap-2">{profile.familyFriends.map((f, i) => (<Badge key={i} variant="secondary" className="cursor-pointer" onClick={() => removeFriend(i)}>{f.name} ({f.role}) ×</Badge>))}</div>
                     </div>
                   )}
 
                   {step === 2 && (
                     <div className="space-y-6">
-                      <div>
-                        <Label>Favorites (pick 3-8) *</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {FAVORITES.map(f => (
-                            <Badge key={f} variant={profile.favorites.includes(f) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleFavorite(f)}>
-                              {f}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <Label>Personality</Label>
-                        {(Object.keys(profile.personality) as Array<keyof typeof profile.personality>).map(trait => (
-                          <div key={trait} className="space-y-2">
-                            <div className="flex justify-between text-sm"><span className="capitalize">{trait}</span><span>{profile.personality[trait]}%</span></div>
-                            <Slider value={[profile.personality[trait]]} onValueChange={([v]) => updateProfile({ personality: { ...profile.personality, [trait]: v } })} max={100} />
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <Label>Mood</Label>
-                        <div className="flex gap-2 mt-2">
-                          {MOODS.map(m => (
-                            <Badge key={m} variant={profile.mood === m ? "default" : "outline"} className="cursor-pointer" onClick={() => updateProfile({ mood: m })}>
-                              {m}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                      <div><Label>Favorites (pick 3-8) *</Label><div className="flex flex-wrap gap-2 mt-2">{FAVORITES.map(f => (<Badge key={f} variant={profile.favorites.includes(f) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleFavorite(f)}>{f}</Badge>))}</div></div>
+                      <div className="space-y-4"><Label>Personality</Label>{(Object.keys(profile.personality) as Array<keyof typeof profile.personality>).map(trait => (<div key={trait} className="space-y-2"><div className="flex justify-between text-sm"><span className="capitalize">{trait}</span><span>{profile.personality[trait]}%</span></div><Slider value={[profile.personality[trait]]} onValueChange={([v]) => updateProfile({ personality: { ...profile.personality, [trait]: v } })} max={100} /></div>))}</div>
+                      <div><Label>Mood</Label><div className="flex gap-2 mt-2">{MOODS.map(m => (<Badge key={m} variant={profile.mood === m ? "default" : "outline"} className="cursor-pointer" onClick={() => updateProfile({ mood: m })}>{m}</Badge>))}</div></div>
                     </div>
                   )}
 
                   {step === 3 && (
                     <div className="space-y-6">
-                      <div>
-                        <Label>Theme *</Label>
-                        <Select value={profile.theme} onValueChange={v => updateProfile({ theme: v })}>
-                          <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
-                          <SelectContent>{THEMES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Setting (optional)</Label>
-                        <Input value={profile.setting} onChange={e => updateProfile({ setting: e.target.value })} placeholder="Where does it happen?" className="mt-2" />
-                      </div>
-                      <div>
-                        <Label>Lesson Focus (optional)</Label>
-                        <Select value={profile.lessonFocus || ""} onValueChange={v => updateProfile({ lessonFocus: v })}>
-                          <SelectTrigger className="mt-2"><SelectValue placeholder="Choose a lesson" /></SelectTrigger>
-                          <SelectContent>{LESSONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
+                      <div><Label>Theme *</Label><Select value={profile.theme} onValueChange={v => updateProfile({ theme: v })}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>{THEMES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+                      <div><Label>Setting (optional)</Label><Input value={profile.setting} onChange={e => updateProfile({ setting: e.target.value })} placeholder="Where does it happen?" className="mt-2" /></div>
+                      <div><Label>Lesson Focus (optional)</Label><Select value={profile.lessonFocus || ""} onValueChange={v => updateProfile({ lessonFocus: v })}><SelectTrigger className="mt-2"><SelectValue placeholder="Choose a lesson" /></SelectTrigger><SelectContent>{LESSONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent></Select></div>
                     </div>
                   )}
                 </motion.div>
               </AnimatePresence>
 
-              {/* Navigation */}
               <div className="flex justify-between mt-8">
                 <div className="flex gap-2">
                   {step > 0 && <Button variant="ghost" onClick={() => setStep(s => s - 1)}><ChevronLeft className="w-4 h-4 mr-1" /> Back</Button>}
-                  <Dialog>
-                    <DialogTrigger asChild><Button variant="ghost" size="icon"><RotateCcw className="w-4 h-4" /></Button></DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Reset Wizard?</DialogTitle><DialogDescription>This will clear all your progress.</DialogDescription></DialogHeader>
-                      <DialogFooter><Button variant="destructive" onClick={handleReset}>Reset</Button></DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <Dialog><DialogTrigger asChild><Button variant="ghost" size="icon"><RotateCcw className="w-4 h-4" /></Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Reset Wizard?</DialogTitle><DialogDescription>This will clear all your progress.</DialogDescription></DialogHeader><DialogFooter><Button variant="destructive" onClick={handleReset}>Reset</Button></DialogFooter></DialogContent></Dialog>
                 </div>
                 {step < 3 ? (
-                  <CinematicButton onClick={() => setStep(s => s + 1)} disabled={!canProceed()}>
-                    Next <ChevronRight className="w-4 h-4" />
-                  </CinematicButton>
+                  <CinematicButton onClick={() => setStep(s => s + 1)} disabled={!canProceed()}>Next <ChevronRight className="w-4 h-4" /></CinematicButton>
                 ) : (
-                  <CinematicButton onClick={handleGenerate} disabled={!canProceed()}>
-                    <Sparkles className="w-4 h-4" /> Generate Adventure
-                  </CinematicButton>
+                  <CinematicButton onClick={handleGenerate} disabled={!canProceed()}><Sparkles className="w-4 h-4" /> Generate Adventure</CinematicButton>
                 )}
               </div>
             </div>
 
-            {/* Live Preview */}
             <div className="hidden lg:block">
-              <PosterPreviewCard
-                title={profile.childName ? `${profile.childName}'s ${profile.theme}` : "Your Adventure Awaits"}
-                tagline={getTagline()}
-                theme={profile.theme}
-                childName={profile.childName}
-                className="w-full max-w-sm mx-auto"
-              />
+              <PosterPreviewCard title={profile.childName ? `${profile.childName}'s ${profile.theme}` : "Your Adventure Awaits"} tagline={getTagline()} theme={profile.theme} childName={profile.childName} className="w-full max-w-sm mx-auto" />
             </div>
           </div>
         </div>

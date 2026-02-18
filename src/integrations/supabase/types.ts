@@ -14,13 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stories: {
+        Row: {
+          child_name: string
+          child_profile: Json | null
+          created_at: string
+          id: string
+          reading_level: string
+          status: string
+          story_text: string
+          theme: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          child_name?: string
+          child_profile?: Json | null
+          created_at?: string
+          id?: string
+          reading_level?: string
+          status?: string
+          story_text?: string
+          theme?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          child_name?: string
+          child_profile?: Json | null
+          created_at?: string
+          id?: string
+          reading_level?: string
+          status?: string
+          story_text?: string
+          theme?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      story_scenes: {
+        Row: {
+          caption: string
+          created_at: string
+          id: string
+          image_url: string | null
+          scene_number: number
+          story_id: string
+        }
+        Insert: {
+          caption?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          scene_number?: number
+          story_id: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          scene_number?: number
+          story_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_scenes_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_story_owner: { Args: { p_story_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
