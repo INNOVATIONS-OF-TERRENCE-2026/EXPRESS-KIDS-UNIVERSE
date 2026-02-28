@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { brand } from "@/lib/brand";
 
 interface LogoBrandProps {
   size?: "sm" | "md" | "lg" | "xl" | "hero";
@@ -25,47 +26,31 @@ export function LogoBrand({ size = "md", showText = false, className = "", anima
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
     >
-      {/* Logo container with 3D effects */}
       <div className="relative group" style={{ perspective: "600px" }}>
-        {/* Halo glow behind logo */}
         <div className={`absolute inset-0 ${s.img} rounded-full bg-aurora-gradient blur-xl opacity-40 group-hover:opacity-70 transition-opacity duration-500`} />
         <div className={`absolute inset-0 ${s.img} rounded-full`} style={{
           background: "radial-gradient(circle, hsl(280 80% 60% / 0.3), transparent 70%)",
           filter: "blur(12px)",
         }} />
 
-        {/* 3D rotating logo */}
         <motion.div
           className="relative"
           animate={animate3D ? {
             rotateY: [0, 5, -5, 0],
             rotateX: [0, -3, 3, 0],
           } : undefined}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          whileHover={{
-            scale: 1.1,
-            rotateY: 15,
-            rotateX: -10,
-            transition: { duration: 0.4 },
-          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          whileHover={{ scale: 1.1, rotateY: 15, rotateX: -10, transition: { duration: 0.4 } }}
           style={{ transformStyle: "preserve-3d" }}
         >
           <img
-            src="/logo.png"
-            alt="Express Kids Studios"
+            src={brand.logoSrc}
+            alt={brand.logoAlt}
             className={`${s.img} object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.5)] relative z-10`}
-            onError={(e) => {
-              // Fallback to SVG if logo.png doesn't exist
-              (e.target as HTMLImageElement).src = "/eku-icon.svg";
-            }}
+            onError={(e) => { (e.target as HTMLImageElement).src = brand.logoFallback; }}
           />
         </motion.div>
 
-        {/* Orbiting sparkle particles */}
         {(size === "hero" || size === "xl") && (
           <>
             {[...Array(6)].map((_, i) => (
@@ -73,44 +58,27 @@ export function LogoBrand({ size = "md", showText = false, className = "", anima
                 key={i}
                 className="absolute w-1.5 h-1.5 rounded-full"
                 style={{
-                  left: "50%",
-                  top: "50%",
+                  left: "50%", top: "50%",
                   background: ["#a855f7", "#06b6d4", "#f59e0b", "#ec4899", "#4ade80", "#fff"][i],
                   boxShadow: `0 0 6px ${["#a855f7", "#06b6d4", "#f59e0b", "#ec4899", "#4ade80", "#fff"][i]}`,
                 }}
                 animate={{
-                  x: [
-                    Math.cos((i / 6) * Math.PI * 2) * (size === "hero" ? 140 : 80),
-                    Math.cos((i / 6) * Math.PI * 2 + Math.PI * 2) * (size === "hero" ? 140 : 80),
-                  ],
-                  y: [
-                    Math.sin((i / 6) * Math.PI * 2) * (size === "hero" ? 140 : 80),
-                    Math.sin((i / 6) * Math.PI * 2 + Math.PI * 2) * (size === "hero" ? 140 : 80),
-                  ],
+                  x: [Math.cos((i / 6) * Math.PI * 2) * (size === "hero" ? 140 : 80), Math.cos((i / 6) * Math.PI * 2 + Math.PI * 2) * (size === "hero" ? 140 : 80)],
+                  y: [Math.sin((i / 6) * Math.PI * 2) * (size === "hero" ? 140 : 80), Math.sin((i / 6) * Math.PI * 2 + Math.PI * 2) * (size === "hero" ? 140 : 80)],
                   opacity: [0.4, 1, 0.4],
                   scale: [1, 1.5, 1],
                 }}
-                transition={{
-                  duration: 10 + i,
-                  delay: i * 0.5,
-                  repeat: Infinity,
-                  ease: "linear",
-                }}
+                transition={{ duration: 10 + i, delay: i * 0.5, repeat: Infinity, ease: "linear" }}
               />
             ))}
           </>
         )}
       </div>
 
-      {/* Optional text label */}
       {showText && (
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
           <span className={`font-heading font-black ${s.text} aurora-text`}>
-            EKU
+            {brand.name}
           </span>
         </motion.div>
       )}

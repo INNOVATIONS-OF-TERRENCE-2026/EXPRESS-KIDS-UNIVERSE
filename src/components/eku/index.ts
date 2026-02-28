@@ -16,3 +16,4 @@ export { Tilt3DCard } from "./Tilt3DCard";
 export { NeonGlow } from "./NeonGlow";
 export { CosmicDust } from "./CosmicDust";
 export { NebulaCloud } from "./NebulaCloud";
+export { Footer } from "./Footer";

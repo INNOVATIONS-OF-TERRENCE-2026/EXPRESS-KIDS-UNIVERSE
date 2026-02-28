@@ -15,6 +15,7 @@ import Account from "./pages/Account";
 import Auth from "./pages/Auth";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import Leadership from "./pages/Leadership";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/leadership" element={<Leadership />} />
           <Route path="/create" element={<ProtectedRoute><CreateWizard /></ProtectedRoute>} />
           <Route path="/create/status" element={<ProtectedRoute><CreateStatus /></ProtectedRoute>} />
           <Route path="/adventure/:storyId" element={<ProtectedRoute><AdventureResults /></ProtectedRoute>} />

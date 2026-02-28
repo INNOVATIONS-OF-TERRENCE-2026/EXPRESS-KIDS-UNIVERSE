@@ -1,18 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, Images, Shield, HelpCircle, Menu, X, LogIn, LogOut } from "lucide-react";
+import { Sparkles, Images, Shield, HelpCircle, Menu, X, LogIn, LogOut, Volume2, VolumeX } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { LogoBrand } from "./LogoBrand";
 import { PwaInstallButton } from "./PwaInstallButton";
+import { brand } from "@/lib/brand";
+import { audioManager } from "@/lib/audio";
+import { getParentSettings } from "@/lib/storage";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
 const navItems = [
@@ -26,10 +24,16 @@ export function GlassNav() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [ambientOn, setAmbientOn] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
+  };
+
+  const toggleAmbient = () => {
+    if (ambientOn) { audioManager.stopAmbient(); setAmbientOn(false); }
+    else { audioManager.startAmbient(); setAmbientOn(true); }
   };
 
   return (
@@ -43,8 +47,13 @@ export function GlassNav() {
         <div className="max-w-7xl mx-auto">
           <div className="glass-card px-4 py-3 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 group">
-              <LogoBrand size="sm" animate3D={false} />
-              <span className="font-heading font-bold text-lg aurora-text hidden sm:block">EKU</span>
+              <img
+                src={brand.logoSrc}
+                alt={brand.logoAlt}
+                className="h-9 w-auto object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).src = brand.logoFallback; }}
+              />
+              <span className="font-heading font-bold text-sm aurora-text hidden sm:block">{brand.name}</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-1">
@@ -69,6 +78,11 @@ export function GlassNav() {
             </div>
 
             <div className="flex items-center gap-2">
+              {getParentSettings().soundEnabled && (
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleAmbient}>
+                  {ambientOn ? <Volume2 className="w-5 h-5 text-primary" /> : <VolumeX className="w-5 h-5" />}
+                </Button>
+              )}
               <PwaInstallButton />
               <Dialog>
                 <DialogTrigger asChild>
@@ -78,7 +92,7 @@ export function GlassNav() {
                 </DialogTrigger>
                 <DialogContent className="glass-card border-0">
                   <DialogHeader>
-                    <DialogTitle className="font-heading text-xl aurora-text">Welcome to Express Kids Universe!</DialogTitle>
+                    <DialogTitle className="font-heading text-xl aurora-text">Welcome to {brand.name}!</DialogTitle>
                     <DialogDescription className="text-muted-foreground">Here's how to create magical adventures for your child.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
