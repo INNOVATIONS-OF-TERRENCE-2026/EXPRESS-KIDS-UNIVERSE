@@ -5,6 +5,7 @@
 /* Express Kids Universe Design System
    Theme: Cinematic Universe Portal - magical space-fantasy
    All colors in HSL format
+   Enhanced with 3D transforms, cinematic effects, and depth layers
 */
 
 @layer base {
@@ -56,6 +57,12 @@
     --glass-border: 260 40% 30%;
     --glass-glow: 280 100% 70%;
 
+    /* 3D / Depth tokens */
+    --depth-near: 0px;
+    --depth-mid: -20px;
+    --depth-far: -50px;
+    --perspective: 1200px;
+
     /* Sidebar tokens */
     --sidebar-background: 260 50% 8%;
     --sidebar-foreground: 260 20% 90%;
@@ -101,6 +108,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Quicksand', sans-serif;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -119,15 +127,17 @@
 }
 
 @layer components {
-  /* Glass morphism card */
+  /* Glass morphism card — enhanced with 3D depth */
   .glass-card {
     @apply relative overflow-hidden rounded-2xl;
     background: hsl(var(--glass-bg) / 0.6);
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid hsl(var(--glass-border) / 0.3);
     box-shadow: 
       0 0 40px hsl(var(--glass-glow) / 0.1),
+      0 8px 32px rgba(0,0,0,0.3),
       inset 0 1px 0 hsl(var(--glass-border) / 0.2);
+    transform-style: preserve-3d;
   }
 
   .glass-card::before {
@@ -153,19 +163,35 @@
     pointer-events: none;
   }
 
-  /* Glow button effect */
+  /* Elevated glass card with 3D shadow depth */
+  .glass-card-elevated {
+    @apply glass-card;
+    box-shadow: 
+      0 0 40px hsl(var(--glass-glow) / 0.15),
+      0 20px 60px rgba(0,0,0,0.4),
+      0 4px 16px rgba(0,0,0,0.3),
+      inset 0 1px 0 hsl(var(--glass-border) / 0.3);
+  }
+
+  /* Glow button effect — enhanced with 3D lift */
   .glow-button {
     @apply relative overflow-hidden transition-all duration-300;
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+    box-shadow: 
+      0 0 20px hsl(var(--primary) / 0.3),
+      0 4px 16px rgba(0,0,0,0.2);
+    transform-style: preserve-3d;
   }
 
   .glow-button:hover {
-    box-shadow: 0 0 30px hsl(var(--primary) / 0.5), 0 0 60px hsl(var(--primary) / 0.3);
-    transform: translateY(-2px);
+    box-shadow: 
+      0 0 30px hsl(var(--primary) / 0.5), 
+      0 0 60px hsl(var(--primary) / 0.3),
+      0 8px 32px rgba(0,0,0,0.3);
+    transform: translateY(-3px) translateZ(10px);
   }
 
   .glow-button:active {
-    transform: scale(0.98) translateY(0);
+    transform: scale(0.98) translateY(0) translateZ(0);
   }
 
   /* Shimmer effect for cards */
@@ -192,9 +218,102 @@
     transform: translateX(100%);
   }
 
-  /* Text glow */
+  /* Text glow — enhanced */
   .text-glow {
-    text-shadow: 0 0 20px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--primary) / 0.3);
+    text-shadow: 
+      0 0 20px hsl(var(--primary) / 0.5), 
+      0 0 40px hsl(var(--primary) / 0.3),
+      0 0 80px hsl(var(--primary) / 0.1);
+  }
+
+  /* 3D floating text */
+  .text-3d {
+    text-shadow:
+      0 1px 0 hsl(var(--primary) / 0.4),
+      0 2px 0 hsl(var(--primary) / 0.3),
+      0 3px 0 hsl(var(--primary) / 0.2),
+      0 4px 0 hsl(var(--primary) / 0.1),
+      0 5px 15px rgba(0,0,0,0.4);
+  }
+
+  /* Cinematic vignette overlay */
+  .vignette {
+    position: relative;
+  }
+  .vignette::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 50%,
+      rgba(13, 10, 46, 0.4) 100%
+    );
+  }
+
+  /* Animated border gradient */
+  .border-gradient {
+    position: relative;
+    border: none !important;
+  }
+  .border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(
+      var(--border-angle, 135deg),
+      hsl(var(--eku-aurora-1)),
+      hsl(var(--eku-aurora-2)),
+      hsl(var(--eku-aurora-3)),
+      hsl(var(--eku-gold))
+    );
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: border-spin 4s linear infinite;
+  }
+
+  /* Depth layer classes for parallax-like effects */
+  .depth-near { transform: translateZ(var(--depth-near)); }
+  .depth-mid { transform: translateZ(var(--depth-mid)); }
+  .depth-far { transform: translateZ(var(--depth-far)); }
+
+  /* 3D perspective container */
+  .perspective-container {
+    perspective: var(--perspective);
+    perspective-origin: 50% 50%;
+    transform-style: preserve-3d;
+  }
+
+  /* Holographic shine effect */
+  .holographic {
+    position: relative;
+    overflow: hidden;
+  }
+  .holographic::after {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: linear-gradient(
+      45deg,
+      transparent 20%,
+      rgba(168, 85, 247, 0.03) 30%,
+      rgba(6, 182, 212, 0.05) 40%,
+      rgba(245, 158, 11, 0.03) 50%,
+      transparent 60%
+    );
+    animation: holographic-shift 8s ease-in-out infinite;
+    pointer-events: none;
   }
 
   /* Aurora text gradient */
@@ -205,6 +324,26 @@
       hsl(var(--eku-aurora-2)),
       hsl(var(--eku-gold))
     );
+    background-size: 200% 200%;
+    animation: aurora-text-flow 6s ease-in-out infinite;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Rainbow shimmer text */
+  .rainbow-text {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--eku-aurora-1)),
+      hsl(var(--eku-aurora-2)),
+      hsl(var(--eku-aurora-3)),
+      hsl(var(--eku-gold)),
+      hsl(var(--eku-sky)),
+      hsl(var(--eku-aurora-1))
+    );
+    background-size: 300% 100%;
+    animation: rainbow-shift 4s linear infinite;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -216,4 +355,32 @@
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
+}
+
+/* Keyframe animations for new effects */
+@keyframes border-spin {
+  0% { --border-angle: 0deg; }
+  100% { --border-angle: 360deg; }
+}
+
+@keyframes holographic-shift {
+  0%, 100% { transform: translateX(-25%) translateY(-25%) rotate(0deg); }
+  50% { transform: translateX(25%) translateY(25%) rotate(180deg); }
+}
+
+@keyframes aurora-text-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes rainbow-shift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* Register CSS custom property for border angle animation */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 135deg;
+  inherits: false;
 }

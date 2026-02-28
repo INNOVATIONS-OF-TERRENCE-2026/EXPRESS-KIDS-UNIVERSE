@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { GlassNav, PageTransition } from "@/components/eku";
+import { GlassNav, PageTransition3D } from "@/components/eku";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 import CreateWizard from "./pages/CreateWizard";
@@ -30,7 +30,7 @@ function AppRoutes() {
   return (
     <>
       <GlassNav />
-      <PageTransition>
+      <PageTransition3D>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
@@ -44,7 +44,7 @@ function AppRoutes() {
           <Route path="/legal/terms" element={<Terms />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </PageTransition>
+      </PageTransition3D>
     </>
   );
 }

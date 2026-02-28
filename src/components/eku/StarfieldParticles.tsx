@@ -12,9 +12,12 @@ export function StarfieldParticles({ count = 50, className = "" }: StarfieldPart
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 2 + 1,
+      size: Math.random() * 2.5 + 0.5,
       delay: Math.random() * 3,
       duration: Math.random() * 2 + 2,
+      color: Math.random() > 0.85 
+        ? ["#a855f7", "#06b6d4", "#f59e0b", "#ec4899"][Math.floor(Math.random() * 4)]
+        : undefined,
     }));
   }, [count]);
 
@@ -23,16 +26,20 @@ export function StarfieldParticles({ count = 50, className = "" }: StarfieldPart
       {stars.map((star) => (
         <motion.div
           key={star.id}
-          className="absolute rounded-full bg-foreground"
+          className="absolute rounded-full"
           style={{
             left: `${star.x}%`,
             top: `${star.y}%`,
             width: star.size,
             height: star.size,
+            backgroundColor: star.color || "hsl(var(--foreground))",
+            boxShadow: star.color 
+              ? `0 0 ${star.size * 3}px ${star.color}`
+              : undefined,
           }}
           animate={{
-            opacity: [0.2, 0.8, 0.2],
-            scale: [1, 1.3, 1],
+            opacity: [0.15, 0.9, 0.15],
+            scale: [1, 1.4, 1],
           }}
           transition={{
             duration: star.duration,
@@ -43,18 +50,18 @@ export function StarfieldParticles({ count = 50, className = "" }: StarfieldPart
         />
       ))}
       
-      {/* A few larger, more prominent stars */}
-      {[...Array(5)].map((_, i) => (
+      {/* Prominent cross-shaped stars */}
+      {[...Array(6)].map((_, i) => (
         <motion.div
           key={`bright-${i}`}
           className="absolute"
           style={{
-            left: `${15 + i * 20}%`,
-            top: `${10 + (i % 3) * 30}%`,
+            left: `${10 + i * 16}%`,
+            top: `${8 + (i % 4) * 22}%`,
           }}
           animate={{
-            opacity: [0.4, 1, 0.4],
-            scale: [1, 1.5, 1],
+            opacity: [0.3, 1, 0.3],
+            scale: [1, 1.6, 1],
           }}
           transition={{
             duration: 3 + i * 0.5,
@@ -63,9 +70,23 @@ export function StarfieldParticles({ count = 50, className = "" }: StarfieldPart
             ease: "easeInOut",
           }}
         >
-          <div className="w-1 h-4 bg-gradient-to-b from-transparent via-foreground to-transparent absolute left-1/2 -translate-x-1/2" />
-          <div className="w-4 h-1 bg-gradient-to-r from-transparent via-foreground to-transparent absolute top-1/2 -translate-y-1/2" />
+          <div className="w-0.5 h-5 bg-gradient-to-b from-transparent via-foreground to-transparent absolute left-1/2 -translate-x-1/2" />
+          <div className="w-5 h-0.5 bg-gradient-to-r from-transparent via-foreground to-transparent absolute top-1/2 -translate-y-1/2" />
         </motion.div>
+      ))}
+
+      {/* Depth layer: distant tiny stars (no animation for perf) */}
+      {Array.from({ length: 30 }, (_, i) => (
+        <div
+          key={`distant-${i}`}
+          className="absolute rounded-full bg-foreground/20"
+          style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            width: 1,
+            height: 1,
+          }}
+        />
       ))}
     </div>
   );

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Express Kids Universe - Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Quicksand', 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0d0a2e 0%, #1a1145 50%, #0d0a2e 100%);
+      color: #e8e0f0;
+      text-align: center;
+      padding: 2rem;
+    }
+    .container { max-width: 480px; }
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 2rem;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(168,85,247,0.3), transparent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: float 4s ease-in-out infinite;
+    }
+    .logo img { width: 80px; height: 80px; object-fit: contain; }
+    h1 {
+      font-family: 'Nunito', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #a855f7, #06b6d4, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    p { color: rgba(232,224,240,0.7); margin-bottom: 2rem; line-height: 1.6; }
+    button {
+      padding: 0.75rem 2rem;
+      border: 2px solid #a855f7;
+      background: transparent;
+      color: #a855f7;
+      border-radius: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    button:hover { background: rgba(168,85,247,0.15); transform: translateY(-2px); }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="/eku-icon.svg" alt="EKU" onerror="this.style.display='none'" />
+    </div>
+    <h1>You're Offline</h1>
+    <p>It looks like you've lost your connection to the universe. Don't worry — your adventures are waiting for you when you're back online!</p>
+    <button onclick="window.location.reload()">Try Again</button>
+  </div>
+</body>
+</html>

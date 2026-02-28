@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, User, Sparkles } from "lucide-react";
-import { AuroraGradient, StarfieldParticles, CinematicButton } from "@/components/eku";
+import { AuroraGradient, StarfieldParticles, CinematicButton, LogoBrand, ShootingStars } from "@/components/eku";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,17 +43,19 @@ export default function Auth() {
   return (
     <div className="relative min-h-screen flex items-center justify-center">
       <AuroraGradient intensity="medium" />
-      <StarfieldParticles count={30} />
+      <StarfieldParticles count={40} />
+      <ShootingStars count={3} />
 
       <div className="relative z-10 w-full max-w-md mx-auto px-4">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-8"
+          initial={{ opacity: 0, y: 20, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="glass-card-elevated p-8 holographic"
         >
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-aurora-gradient flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="w-8 h-8 text-foreground" />
+            <div className="flex justify-center mb-4">
+              <LogoBrand size="lg" animate3D />
             </div>
             <h1 className="font-heading text-2xl font-bold aurora-text">
               {isSignUp ? "Join the Adventure" : "Welcome Back"}

@@ -4,6 +4,8 @@ import { Sparkles, Images, Shield, HelpCircle, Menu, X, LogIn, LogOut } from "lu
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { LogoBrand } from "./LogoBrand";
+import { PwaInstallButton } from "./PwaInstallButton";
 import {
   Dialog,
   DialogContent,
@@ -41,13 +43,7 @@ export function GlassNav() {
         <div className="max-w-7xl mx-auto">
           <div className="glass-card px-4 py-3 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 group">
-              <motion.div
-                whileHover={{ rotate: 180, scale: 1.1 }}
-                transition={{ duration: 0.3 }}
-                className="w-8 h-8 rounded-full bg-aurora-gradient flex items-center justify-center"
-              >
-                <Sparkles className="w-4 h-4 text-foreground" />
-              </motion.div>
+              <LogoBrand size="sm" animate3D={false} />
               <span className="font-heading font-bold text-lg aurora-text hidden sm:block">EKU</span>
             </Link>
 
@@ -73,6 +69,7 @@ export function GlassNav() {
             </div>
 
             <div className="flex items-center gap-2">
+              <PwaInstallButton />
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
