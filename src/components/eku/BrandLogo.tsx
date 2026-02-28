@@ -6,14 +6,15 @@ import { brand } from "@/lib/brand";
  * BrandLogo — Single source of truth for Express Kids Universe brand mark.
  *
  * Uses the official cinematic full logo (PNG) as the ONLY source.
- * Applies radial CSS mask for seamless transparent edge fade.
+ * Renders inside a perfect circle: overflow:hidden + border-radius:50%
+ * + object-fit:cover at 120% for full fill with zero square edges.
  * GPU-composited: transform + opacity only — zero layout shift.
  *
  * Variants:
- *  - nav:   compact, subtle glow, no float
- *  - hero:  large, full glow + float animation
- *  - auth:  medium-large with entrance animation
- *  - footer: compact, no animations, muted glow
+ *  - nav:    compact circle, subtle glow, no float
+ *  - hero:   large circle, full glow + float animation
+ *  - auth:   medium-large circle with entrance animation
+ *  - footer: compact circle, no animations, muted glow
  */
 
 interface BrandLogoProps {
@@ -29,27 +30,30 @@ interface BrandLogoProps {
   animate3D?: boolean;
 }
 
+/* Circle wrapper dimensions — equal w/h enforces 1:1 aspect ratio */
 const SIZE_MAP = {
-  xs: { img: "w-7 h-7", text: "text-sm" },
-  sm: { img: "w-10 h-10", text: "text-lg" },
-  md: { img: "w-14 h-14", text: "text-xl" },
-  lg: { img: "w-24 h-24", text: "text-2xl" },
-  xl: { img: "w-36 h-36", text: "text-3xl" },
-  hero: { img: "w-52 h-52 md:w-72 md:h-72", text: "text-4xl md:text-5xl" },
+  xs:   { wrapper: "w-7 h-7",   text: "text-sm" },
+  sm:   { wrapper: "w-10 h-10", text: "text-lg" },
+  md:   { wrapper: "w-14 h-14", text: "text-xl" },
+  lg:   { wrapper: "w-24 h-24", text: "text-2xl" },
+  xl:   { wrapper: "w-36 h-36", text: "text-3xl" },
+  hero: { wrapper: "w-52 h-52 md:w-72 md:h-72", text: "text-4xl md:text-5xl" },
 } as const;
 
-/** Radial gradient mask — dissolves hard edges into transparency */
-const LOGO_MASK: React.CSSProperties = {
-  WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
-  maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+/** Variant-specific glow box-shadows applied to circular wrapper */
+const GLOW_MAP: Record<string, string> = {
+  nav:    "0 0 8px rgba(255,180,0,0.15)",
+  hero:   "0 0 40px rgba(255,180,0,0.2), 0 0 80px rgba(168,85,247,0.12)",
+  auth:   "0 0 28px rgba(255,180,0,0.18), 0 0 56px rgba(168,85,247,0.1)",
+  footer: "0 0 4px rgba(255,180,0,0.08)",
 };
 
-/** Variant-specific glow filters */
-const GLOW_MAP: Record<string, string> = {
-  nav: "drop-shadow(0 0 6px rgba(168,85,247,0.25))",
-  hero: "drop-shadow(0 0 28px rgba(168,85,247,0.4)) drop-shadow(0 0 56px rgba(6,182,212,0.2))",
-  auth: "drop-shadow(0 0 20px rgba(168,85,247,0.35)) drop-shadow(0 0 40px rgba(245,158,11,0.15))",
-  footer: "drop-shadow(0 0 4px rgba(168,85,247,0.15))",
+/** Variant-specific drop-shadow filters on the image */
+const FILTER_MAP: Record<string, string> = {
+  nav:    "drop-shadow(0 0 4px rgba(255,180,0,0.2))",
+  hero:   "drop-shadow(0 0 18px rgba(255,180,0,0.5)) drop-shadow(0 0 40px rgba(168,85,247,0.15))",
+  auth:   "drop-shadow(0 0 14px rgba(255,180,0,0.4)) drop-shadow(0 0 28px rgba(168,85,247,0.12))",
+  footer: "drop-shadow(0 0 2px rgba(255,180,0,0.1))",
 };
 
 export const BrandLogo = memo(function BrandLogo({
@@ -61,7 +65,8 @@ export const BrandLogo = memo(function BrandLogo({
 }: BrandLogoProps) {
   const s = SIZE_MAP[size];
   const shouldAnimate = animate3D && variant !== "footer";
-  const glowFilter = GLOW_MAP[variant] ?? GLOW_MAP.hero;
+  const wrapperGlow = GLOW_MAP[variant] ?? GLOW_MAP.hero;
+  const imgFilter = FILTER_MAP[variant] ?? FILTER_MAP.hero;
 
   return (
     <motion.div
@@ -70,14 +75,12 @@ export const BrandLogo = memo(function BrandLogo({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
     >
-      {/* Logo image container — transparent, no background */}
+      {/* Circular logo container */}
       <div
         className="relative group"
         style={{
           perspective: "800px",
           background: "transparent",
-          border: "none",
-          boxShadow: "none",
         }}
       >
         {/* 3D animated wrapper */}
@@ -85,19 +88,12 @@ export const BrandLogo = memo(function BrandLogo({
           className="relative will-change-transform"
           animate={
             shouldAnimate
-              ? {
-                  rotateY: [0, 4, -4, 0],
-                  rotateX: [0, -2, 2, 0],
-                }
+              ? { rotateY: [0, 4, -4, 0], rotateX: [0, -2, 2, 0] }
               : undefined
           }
           transition={
             shouldAnimate
-              ? {
-                  duration: 8,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }
+              ? { duration: 8, repeat: Infinity, ease: "easeInOut" }
               : undefined
           }
           whileHover={{
@@ -108,20 +104,32 @@ export const BrandLogo = memo(function BrandLogo({
           }}
           style={{ transformStyle: "preserve-3d" }}
         >
-          <img
-            src={brand.logoSrc}
-            alt={brand.logoAlt}
-            className={`${s.img} object-contain relative z-10`}
+          {/* Perfect circle wrapper — overflow:hidden clips to circle */}
+          <div
+            className={`${s.wrapper} rounded-full overflow-hidden relative`}
             style={{
-              background: "transparent",
-              border: "none",
-              boxShadow: "none",
-              filter: glowFilter,
-              ...LOGO_MASK,
+              background:
+                "radial-gradient(circle at center, rgba(255,200,0,0.04), transparent 70%)",
+              boxShadow: wrapperGlow,
             }}
-            loading={variant === "hero" ? "eager" : "lazy"}
-            decoding="async"
-          />
+          >
+            <img
+              src={brand.logoSrc}
+              alt={brand.logoAlt}
+              className="w-[120%] h-[120%] absolute top-1/2 left-1/2 z-10"
+              style={{
+                transform: "translate(-50%, -50%)",
+                objectFit: "cover",
+                objectPosition: "center center",
+                border: "none",
+                background: "transparent",
+                imageRendering: "auto",
+                filter: imgFilter,
+              }}
+              loading={variant === "hero" ? "eager" : "lazy"}
+              decoding="async"
+            />
+          </div>
         </motion.div>
       </div>
 

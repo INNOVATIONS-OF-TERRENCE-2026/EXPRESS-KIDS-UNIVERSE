@@ -6,12 +6,13 @@ import { brand } from "@/lib/brand";
  * StudioLogoEngine — Cinematic GPU-accelerated 3D animation system
  * for the Express Kids Studios official cinematic logo.
  *
- * Uses the full cinematic PNG logo with radial CSS mask for
- * seamless transparent edge blending into any background.
+ * Renders the logo inside a perfect circle using overflow:hidden +
+ * border-radius:50% + object-fit:cover at 120% scale for full fill.
+ * Warm golden glow extracted from the logo palette.
  *
  * Layers:
- *  1. Radial energy glow (background pulse)
- *  2. 3D depth float + cursor-driven tilt (desktop only)
+ *  1. Radial energy glow (background pulse — warm golden)
+ *  2. 3D depth float + cursor-driven tilt (desktop only, ±4deg)
  *  3. Orbital sparkle ring (CSS keyframe)
  *  4. Cinematic light sweep (::after pseudo via CSS class)
  *  5. Depth shadow field
@@ -33,18 +34,13 @@ interface StudioLogoEngineProps {
   className?: string;
 }
 
+/* Circle wrapper sizes — aspect-ratio: 1/1 enforced via equal w/h */
 const SIZE_CONFIG = {
-  md: { imgClass: "w-20 h-20 md:w-24 md:h-24", ring: 80, sparkles: 0 },
-  lg: { imgClass: "w-28 h-28 md:w-36 md:h-36", ring: 100, sparkles: 4 },
-  xl: { imgClass: "w-44 h-44 md:w-52 md:h-52", ring: 140, sparkles: 6 },
-  hero: { imgClass: "w-60 h-60 md:w-80 md:h-80 lg:w-[26rem] lg:h-[26rem]", ring: 200, sparkles: 8 },
+  md:   { wrapper: "w-24 h-24 md:w-28 md:h-28",                            ring: 80,  sparkles: 0 },
+  lg:   { wrapper: "w-36 h-36 md:w-44 md:h-44",                            ring: 120, sparkles: 4 },
+  xl:   { wrapper: "w-52 h-52 md:w-60 md:h-60",                            ring: 160, sparkles: 6 },
+  hero: { wrapper: "w-64 h-64 md:w-80 md:h-80 lg:w-[22rem] lg:h-[22rem]", ring: 220, sparkles: 8 },
 } as const;
-
-/** Radial gradient mask — dissolves hard edges into transparency */
-const LOGO_MASK: React.CSSProperties = {
-  WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
-  maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
-};
 
 const LOGO_SRC = brand.logoSrc;
 
@@ -60,46 +56,34 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
   const rafRef = useRef<number>(0);
   const prefersReducedMotion = useReducedMotion();
 
-  // Tilt state driven by mouse (desktop only)
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [clicked, setClicked] = useState(false);
 
   // Cursor-driven 3D tilt (desktop only, RAF-throttled)
   useEffect(() => {
     if (prefersReducedMotion) return;
-
     const isMobile = window.matchMedia("(hover: none)").matches;
     if (isMobile) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (rafRef.current) return; // throttle to 1 per frame
+      if (rafRef.current) return;
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = 0;
         const el = containerRef.current;
         if (!el) return;
-
         const rect = el.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
-
-        // Normalize to -1..1 relative to element center
         const nx = (e.clientX - cx) / (rect.width / 2);
         const ny = (e.clientY - cy) / (rect.height / 2);
-
-        setTilt({
-          x: clamp(ny * -4, 4), // rotateX (inverted Y)
-          y: clamp(nx * 4, 4),  // rotateY
-        });
+        setTilt({ x: clamp(ny * -4, 4), y: clamp(nx * 4, 4) });
       });
     };
 
-    const handleMouseLeave = () => {
-      setTilt({ x: 0, y: 0 });
-    };
+    const handleMouseLeave = () => setTilt({ x: 0, y: 0 });
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("mouseleave", handleMouseLeave);
-
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
@@ -120,31 +104,23 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
     <motion.div
       ref={containerRef}
       className={`studio-logo-engine relative inline-flex items-center justify-center ${className}`}
-      style={{
-        perspective: "1200px",
-        background: "transparent",
-      }}
-      // Entrance animation
+      style={{ perspective: "1200px", background: "transparent" }}
       initial={{ opacity: 0, scale: 0.6, rotateY: -20 }}
       animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-      transition={{
-        duration: 1,
-        ease: [0.22, 1, 0.36, 1],
-        delay: 0.15,
-      }}
+      transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
     >
-      {/* Layer 1: Radial energy glow */}
+      {/* Layer 1: Radial energy glow — warm golden from logo palette */}
       <motion.div
         className="absolute inset-0 -z-10 rounded-full will-change-transform"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(168,85,247,0.18) 0%, rgba(6,182,212,0.08) 40%, transparent 70%)",
+            "radial-gradient(ellipse at center, rgba(255,180,0,0.15) 0%, rgba(168,85,247,0.1) 40%, transparent 70%)",
           filter: "blur(40px)",
           transform: "scale(1.6)",
         }}
         animate={
           shouldAnimate
-            ? { opacity: [0.5, 0.8, 0.5], scale: [1.5, 1.7, 1.5] }
+            ? { opacity: [0.5, 0.85, 0.5], scale: [1.5, 1.7, 1.5] }
             : undefined
         }
         transition={
@@ -165,22 +141,14 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
           transition: "transform 0.15s ease-out",
         }}
         animate={
-          shouldAnimate
-            ? {
-                y: [0, -10, 0],
-                scale: [1, 1.015, 1],
-              }
-            : undefined
+          shouldAnimate ? { y: [0, -8, 0], scale: [1, 1.012, 1] } : undefined
         }
         transition={
           shouldAnimate
             ? { duration: 7, repeat: Infinity, ease: "easeInOut" }
             : undefined
         }
-        whileHover={{
-          scale: 1.06,
-          transition: { duration: 0.3 },
-        }}
+        whileHover={{ scale: 1.06, transition: { duration: 0.3 } }}
         whileTap={{ scale: 0.97 }}
         onClick={() => setClicked(true)}
       >
@@ -200,7 +168,10 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
           >
             {Array.from({ length: config.sparkles }, (_, i) => {
               const angle = (i / config.sparkles) * 360;
-              const colors = ["#a855f7", "#06b6d4", "#f59e0b", "#ec4899", "#4ade80", "#fff", "#06b6d4", "#a855f7"];
+              const colors = [
+                "#f59e0b", "#a855f7", "#06b6d4", "#ec4899",
+                "#4ade80", "#ff6b35", "#06b6d4", "#f59e0b",
+              ];
               return (
                 <span
                   key={i}
@@ -222,23 +193,31 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
           </div>
         )}
 
-        {/* Layer 4: Light sweep container */}
+        {/* Layer 4: Circular logo container — perfect circle crop */}
         <div
-          className={`relative overflow-hidden rounded-full ${shouldAnimate ? "studio-light-sweep" : ""}`}
-          style={{ background: "transparent" }}
+          className={`${config.wrapper} relative rounded-full overflow-hidden ${shouldAnimate ? "studio-light-sweep" : ""}`}
+          style={{
+            background:
+              "radial-gradient(circle at center, rgba(255,200,0,0.06), transparent 70%)",
+            boxShadow:
+              "0 0 60px rgba(255,180,0,0.12), 0 0 120px rgba(168,85,247,0.08)",
+          }}
         >
-          {/* Core logo image — official cinematic logo with radial mask */}
+          {/* Core logo image — object-fit:cover fills circle completely */}
           <img
             src={LOGO_SRC}
             alt={brand.logoAlt}
-            className={`${config.imgClass} object-contain relative z-10`}
+            className="w-[120%] h-[120%] absolute top-1/2 left-1/2 z-10"
             style={{
-              background: "transparent",
+              transform: "translate(-50%, -50%)",
+              objectFit: "cover",
+              objectPosition: "center center",
               border: "none",
-              boxShadow: "none",
-              filter: "drop-shadow(0 0 24px rgba(168,85,247,0.35)) drop-shadow(0 0 48px rgba(6,182,212,0.15))",
+              background: "transparent",
+              imageRendering: "auto",
+              filter:
+                "drop-shadow(0 0 18px rgba(255,180,0,0.5)) drop-shadow(0 0 40px rgba(168,85,247,0.2))",
               willChange: "transform",
-              ...LOGO_MASK,
             }}
             loading="eager"
             decoding="async"
@@ -254,18 +233,18 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
             transition={{ duration: 0.6, ease: "easeOut" }}
             style={{
               background:
-                "radial-gradient(circle, rgba(168,85,247,0.3) 0%, transparent 70%)",
+                "radial-gradient(circle, rgba(255,180,0,0.3) 0%, transparent 70%)",
             }}
           />
         )}
       </motion.div>
 
-      {/* Layer 6: Depth shadow field (static, no animation cost) */}
+      {/* Layer 6: Depth shadow field */}
       <div
         className="absolute inset-0 -z-20 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(168,85,247,0.06) 0%, transparent 60%)",
+            "radial-gradient(ellipse at center, rgba(255,180,0,0.04) 0%, transparent 60%)",
           filter: "blur(60px)",
           transform: "scale(2) translateY(10%)",
         }}

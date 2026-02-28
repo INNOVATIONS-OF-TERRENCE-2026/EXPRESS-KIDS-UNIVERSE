@@ -248,17 +248,26 @@ export const StudioIntro = memo(function StudioIntro({ theme, onComplete }: Stud
                 ease: [0.22, 1, 0.36, 1],
               }}
             >
-              <img
-                src={brand.logoSrc}
-                alt=""
-                className="w-40 h-40 md:w-56 md:h-56 object-contain"
+              <div
+                className="w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden relative"
                 style={{
-                  filter: `drop-shadow(0 0 32px ${themeColors.glow})`,
-                  willChange: "transform",
-                  WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
-                  maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+                  boxShadow: `0 0 32px ${themeColors.glow}`,
+                  background: "radial-gradient(circle at center, rgba(255,200,0,0.04), transparent 70%)",
                 }}
-              />
+              >
+                <img
+                  src={brand.logoSrc}
+                  alt=""
+                  className="w-[120%] h-[120%] absolute top-1/2 left-1/2 z-10"
+                  style={{
+                    transform: "translate(-50%, -50%)",
+                    objectFit: "cover",
+                    objectPosition: "center center",
+                    imageRendering: "auto",
+                    filter: `drop-shadow(0 0 18px ${themeColors.glow})`,
+                  }}
+                />
+              </div>
             </motion.div>
 
             {/* Brand name text */}
