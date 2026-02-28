@@ -19,6 +19,7 @@ import Terms from "./pages/Terms";
 import Leadership from "./pages/Leadership";
 import StudioDashboard from "./pages/StudioDashboard";
 import Pricing from "./pages/Pricing";
+import SeoSuite from "./pages/SeoSuite";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ function AppRoutes() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/leadership" element={<Leadership />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/seo" element={<ProtectedRoute><SeoSuite /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><StudioDashboard /></ProtectedRoute>} />
           <Route path="/create" element={<ProtectedRoute><CreateWizard /></ProtectedRoute>} />
           <Route path="/create/status" element={<ProtectedRoute><CreateStatus /></ProtectedRoute>} />
