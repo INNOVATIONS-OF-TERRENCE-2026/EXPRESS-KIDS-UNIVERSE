@@ -112,6 +112,15 @@
 
   html {
     scroll-behavior: smooth;
+    /* Smooth theme transition — background + color crossfade */
+    transition: background-color 300ms ease, color 200ms ease;
+  }
+
+  /* Smooth transition for themed elements during theme switch */
+  body,
+  .glass-card,
+  .glow-button {
+    transition: background-color 300ms ease, color 200ms ease, box-shadow 300ms ease, border-color 300ms ease;
   }
 
   body {

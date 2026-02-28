@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { BrandLogo } from "./BrandLogo";
 import { PwaInstallButton } from "./PwaInstallButton";
+import { ThemeSelector } from "@/components/ThemeSelector";
 import { brand } from "@/lib/brand";
 import { audioManager } from "@/lib/audio";
 import { getParentSettings } from "@/lib/storage";
@@ -79,6 +80,7 @@ export function GlassNav() {
                   {ambientOn ? <Volume2 className="w-5 h-5 text-primary" /> : <VolumeX className="w-5 h-5" />}
                 </Button>
               )}
+              <ThemeSelector />
               <PwaInstallButton />
               <Dialog>
                 <DialogTrigger asChild>
