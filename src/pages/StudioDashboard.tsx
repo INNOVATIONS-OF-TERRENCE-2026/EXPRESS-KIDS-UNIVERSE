@@ -48,7 +48,7 @@ export default function StudioDashboard() {
         <StaggerContainer className="mb-10" delay={0.05}>
           <StaggerItem className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <BrandLogo size="md" animate3D={false} />
+              <BrandLogo size="md" variant="nav" animate3D={false} />
               <div>
                 <h1 className="font-heading text-2xl md:text-3xl font-bold aurora-text">
                   Studio Dashboard

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Share, X } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -129,10 +130,13 @@ export function PwaInstallButton() {
               </button>
               <div className="w-16 h-16 mx-auto mb-4">
                 <img
-                  src="/logo.png"
-                  alt="EKU"
+                  src={brand.logoSrc}
+                  alt={brand.logoAlt}
                   className="w-full h-full object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).src = "/eku-icon.svg"; }}
+                  style={{
+                    WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+                    maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+                  }}
                 />
               </div>
               <h3 className="font-heading text-lg font-bold mb-2">Install Express Kids Universe</h3>

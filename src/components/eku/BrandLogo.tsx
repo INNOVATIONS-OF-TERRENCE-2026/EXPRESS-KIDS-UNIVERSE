@@ -1,20 +1,27 @@
-import { memo, useCallback, useState } from "react";
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { brand } from "@/lib/brand";
 
 /**
- * BrandLogo — Single source of truth for Express Kids Studios brand mark.
+ * BrandLogo — Single source of truth for Express Kids Universe brand mark.
  *
- * Uses the transparent SVG logo from brand config with size presets,
- * optional text, and GPU-accelerated 3D hover/idle animation.
+ * Uses the official cinematic full logo (PNG) as the ONLY source.
+ * Applies radial CSS mask for seamless transparent edge fade.
+ * GPU-composited: transform + opacity only — zero layout shift.
  *
- * All transforms use `transform` + `opacity` only — zero layout shift.
+ * Variants:
+ *  - nav:   compact, subtle glow, no float
+ *  - hero:  large, full glow + float animation
+ *  - auth:  medium-large with entrance animation
+ *  - footer: compact, no animations, muted glow
  */
 
 interface BrandLogoProps {
   /** Preset size token */
   size?: "xs" | "sm" | "md" | "lg" | "xl" | "hero";
-  /** Show "EKU" text beside logo */
+  /** Context variant for styling adaptation */
+  variant?: "nav" | "hero" | "auth" | "footer";
+  /** Show brand name text beside logo */
   showText?: boolean;
   /** Additional class names */
   className?: string;
@@ -23,29 +30,38 @@ interface BrandLogoProps {
 }
 
 const SIZE_MAP = {
-  xs: { img: "w-6 h-6", text: "text-sm" },
-  sm: { img: "w-8 h-8", text: "text-lg" },
-  md: { img: "w-12 h-12", text: "text-xl" },
-  lg: { img: "w-20 h-20", text: "text-2xl" },
-  xl: { img: "w-32 h-32", text: "text-3xl" },
-  hero: { img: "w-48 h-48 md:w-64 md:h-64", text: "text-4xl md:text-5xl" },
+  xs: { img: "w-7 h-7", text: "text-sm" },
+  sm: { img: "w-10 h-10", text: "text-lg" },
+  md: { img: "w-14 h-14", text: "text-xl" },
+  lg: { img: "w-24 h-24", text: "text-2xl" },
+  xl: { img: "w-36 h-36", text: "text-3xl" },
+  hero: { img: "w-52 h-52 md:w-72 md:h-72", text: "text-4xl md:text-5xl" },
 } as const;
 
-const LOGO_SRC = brand.logoSrc;
-const LOGO_FALLBACK = brand.logoFallback;
+/** Radial gradient mask — dissolves hard edges into transparency */
+const LOGO_MASK: React.CSSProperties = {
+  WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+  maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+};
+
+/** Variant-specific glow filters */
+const GLOW_MAP: Record<string, string> = {
+  nav: "drop-shadow(0 0 6px rgba(168,85,247,0.25))",
+  hero: "drop-shadow(0 0 28px rgba(168,85,247,0.4)) drop-shadow(0 0 56px rgba(6,182,212,0.2))",
+  auth: "drop-shadow(0 0 20px rgba(168,85,247,0.35)) drop-shadow(0 0 40px rgba(245,158,11,0.15))",
+  footer: "drop-shadow(0 0 4px rgba(168,85,247,0.15))",
+};
 
 export const BrandLogo = memo(function BrandLogo({
   size = "md",
+  variant = "hero",
   showText = false,
   className = "",
   animate3D = true,
 }: BrandLogoProps) {
   const s = SIZE_MAP[size];
-  const [imgSrc, setImgSrc] = useState<string>(LOGO_SRC);
-
-  const handleImgError = useCallback(() => {
-    setImgSrc((prev) => (prev === LOGO_SRC ? LOGO_FALLBACK : LOGO_FALLBACK));
-  }, []);
+  const shouldAnimate = animate3D && variant !== "footer";
+  const glowFilter = GLOW_MAP[variant] ?? GLOW_MAP.hero;
 
   return (
     <motion.div
@@ -68,7 +84,7 @@ export const BrandLogo = memo(function BrandLogo({
         <motion.div
           className="relative will-change-transform"
           animate={
-            animate3D
+            shouldAnimate
               ? {
                   rotateY: [0, 4, -4, 0],
                   rotateX: [0, -2, 2, 0],
@@ -76,7 +92,7 @@ export const BrandLogo = memo(function BrandLogo({
               : undefined
           }
           transition={
-            animate3D
+            shouldAnimate
               ? {
                   duration: 8,
                   repeat: Infinity,
@@ -93,17 +109,17 @@ export const BrandLogo = memo(function BrandLogo({
           style={{ transformStyle: "preserve-3d" }}
         >
           <img
-            src={imgSrc}
+            src={brand.logoSrc}
             alt={brand.logoAlt}
             className={`${s.img} object-contain relative z-10`}
             style={{
               background: "transparent",
               border: "none",
               boxShadow: "none",
-              filter: "drop-shadow(0 0 16px rgba(168,85,247,0.4))",
+              filter: glowFilter,
+              ...LOGO_MASK,
             }}
-            onError={handleImgError}
-            loading="lazy"
+            loading={variant === "hero" ? "eager" : "lazy"}
             decoding="async"
           />
         </motion.div>

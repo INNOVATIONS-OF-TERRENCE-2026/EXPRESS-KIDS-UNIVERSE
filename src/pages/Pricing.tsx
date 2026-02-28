@@ -36,7 +36,7 @@ export default function Pricing() {
         {/* Header */}
         <StaggerContainer className="text-center mb-16" delay={0.1}>
           <StaggerItem className="flex justify-center mb-4">
-            <BrandLogo size="lg" animate3D />
+            <BrandLogo size="lg" variant="hero" animate3D />
           </StaggerItem>
           <StaggerItem>
             <h1 className="font-heading text-4xl md:text-5xl font-black aurora-text mb-4">

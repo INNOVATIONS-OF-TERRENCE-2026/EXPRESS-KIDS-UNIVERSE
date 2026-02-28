@@ -255,6 +255,8 @@ export const StudioIntro = memo(function StudioIntro({ theme, onComplete }: Stud
                 style={{
                   filter: `drop-shadow(0 0 32px ${themeColors.glow})`,
                   willChange: "transform",
+                  WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+                  maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
                 }}
               />
             </motion.div>

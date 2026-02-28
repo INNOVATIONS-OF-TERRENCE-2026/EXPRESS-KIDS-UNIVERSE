@@ -20,8 +20,7 @@ export default defineConfig(({ mode }) => ({
         "favicon-16x16.png",
         "favicon-32x32.png",
         "apple-touch-icon.png",
-        "eku-icon.svg",
-        "eku-icon-transparent.svg",
+        "brand/express-kids-universe-logo.png",
         "offline.html",
       ],
       manifest: {

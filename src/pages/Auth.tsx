@@ -66,7 +66,7 @@ export default function Auth() {
         >
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <BrandLogo size="lg" animate3D />
+              <BrandLogo size="lg" variant="auth" animate3D />
             </div>
             <h1 className="font-heading text-2xl font-bold aurora-text">
               {isSignUp ? "Join the Adventure" : "Welcome Back"}

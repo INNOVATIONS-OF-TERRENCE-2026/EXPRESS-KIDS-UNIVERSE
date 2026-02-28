@@ -25,7 +25,7 @@ const NotFound = () => {
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="flex justify-center mb-8">
-            <BrandLogo size="xl" animate3D />
+            <BrandLogo size="xl" variant="auth" animate3D />
           </div>
 
           <motion.h1

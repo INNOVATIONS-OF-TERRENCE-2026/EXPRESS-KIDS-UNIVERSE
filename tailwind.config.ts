@@ -72,6 +72,14 @@ export default {
           sky: "hsl(var(--eku-sky))",
           ink: "hsl(var(--eku-ink))",
           glow: "hsl(var(--eku-glow))",
+          // Cinematic palette from official logo
+          red: "hsl(var(--eku-red))",
+          orange: "hsl(var(--eku-orange))",
+          yellow: "hsl(var(--eku-yellow))",
+          green: "hsl(var(--eku-green))",
+          blue: "hsl(var(--eku-blue))",
+          purple: "hsl(var(--eku-purple))",
+          night: "hsl(var(--eku-night))",
         },
       },
       borderRadius: {

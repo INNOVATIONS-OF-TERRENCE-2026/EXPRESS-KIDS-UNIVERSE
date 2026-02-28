@@ -48,7 +48,7 @@ export function GlassNav() {
         <div className="max-w-7xl mx-auto">
           <div className="glass-card px-4 py-3 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 group">
-              <BrandLogo size="sm" animate3D={false} />
+              <BrandLogo size="sm" variant="nav" animate3D={false} />
               <span className="font-heading font-bold text-sm aurora-text hidden sm:block">{brand.name}</span>
             </Link>
 

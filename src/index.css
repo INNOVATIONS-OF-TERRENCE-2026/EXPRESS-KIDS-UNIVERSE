@@ -10,7 +10,7 @@
 
 @layer base {
   :root {
-    /* EKU Brand Colors */
+    /* EKU Brand Colors — extracted from official cinematic logo */
     --eku-bg: 260 60% 6%;
     --eku-bg-lighter: 260 50% 10%;
     --eku-aurora-1: 280 80% 60%;
@@ -20,6 +20,15 @@
     --eku-sky: 200 90% 70%;
     --eku-ink: 260 20% 95%;
     --eku-glow: 280 100% 70%;
+
+    /* Cinematic palette — derived from Express Kids Studios logo */
+    --eku-red: 4 85% 55%;
+    --eku-orange: 25 95% 55%;
+    --eku-yellow: 45 100% 55%;
+    --eku-green: 155 75% 45%;
+    --eku-blue: 220 80% 55%;
+    --eku-purple: 270 85% 60%;
+    --eku-night: 230 60% 10%;
     
     /* Semantic tokens mapped to EKU theme */
     --background: 260 60% 6%;

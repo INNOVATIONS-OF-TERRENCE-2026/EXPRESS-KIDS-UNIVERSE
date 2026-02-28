@@ -1,10 +1,13 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { brand } from "@/lib/brand";
 
 /**
  * StudioLogoEngine — Cinematic GPU-accelerated 3D animation system
- * for the Express Kids Studios brand logo.
+ * for the Express Kids Studios official cinematic logo.
+ *
+ * Uses the full cinematic PNG logo with radial CSS mask for
+ * seamless transparent edge blending into any background.
  *
  * Layers:
  *  1. Radial energy glow (background pulse)
@@ -31,14 +34,19 @@ interface StudioLogoEngineProps {
 }
 
 const SIZE_CONFIG = {
-  md: { imgClass: "w-16 h-16 md:w-20 md:h-20", ring: 80, sparkles: 0 },
-  lg: { imgClass: "w-24 h-24 md:w-32 md:h-32", ring: 100, sparkles: 4 },
-  xl: { imgClass: "w-40 h-40 md:w-48 md:h-48", ring: 140, sparkles: 6 },
-  hero: { imgClass: "w-56 h-56 md:w-72 md:h-72 lg:w-[22rem] lg:h-[22rem]", ring: 200, sparkles: 8 },
+  md: { imgClass: "w-20 h-20 md:w-24 md:h-24", ring: 80, sparkles: 0 },
+  lg: { imgClass: "w-28 h-28 md:w-36 md:h-36", ring: 100, sparkles: 4 },
+  xl: { imgClass: "w-44 h-44 md:w-52 md:h-52", ring: 140, sparkles: 6 },
+  hero: { imgClass: "w-60 h-60 md:w-80 md:h-80 lg:w-[26rem] lg:h-[26rem]", ring: 200, sparkles: 8 },
 } as const;
 
+/** Radial gradient mask — dissolves hard edges into transparency */
+const LOGO_MASK: React.CSSProperties = {
+  WebkitMaskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+  maskImage: "radial-gradient(circle, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+};
+
 const LOGO_SRC = brand.logoSrc;
-const LOGO_FALLBACK = brand.logoFallback;
 
 /** Clamp a value between -max and +max */
 const clamp = (v: number, max: number) => Math.min(Math.max(v, -max), max);
@@ -54,12 +62,7 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
 
   // Tilt state driven by mouse (desktop only)
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [imgSrc, setImgSrc] = useState<string>(LOGO_SRC);
   const [clicked, setClicked] = useState(false);
-
-  const handleImgError = useCallback(() => {
-    setImgSrc((prev) => (prev === LOGO_SRC ? LOGO_FALLBACK : LOGO_FALLBACK));
-  }, []);
 
   // Cursor-driven 3D tilt (desktop only, RAF-throttled)
   useEffect(() => {
@@ -224,9 +227,9 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
           className={`relative overflow-hidden rounded-full ${shouldAnimate ? "studio-light-sweep" : ""}`}
           style={{ background: "transparent" }}
         >
-          {/* Core logo image */}
+          {/* Core logo image — official cinematic logo with radial mask */}
           <img
-            src={imgSrc}
+            src={LOGO_SRC}
             alt={brand.logoAlt}
             className={`${config.imgClass} object-contain relative z-10`}
             style={{
@@ -235,8 +238,8 @@ export const StudioLogoEngine = memo(function StudioLogoEngine({
               boxShadow: "none",
               filter: "drop-shadow(0 0 24px rgba(168,85,247,0.35)) drop-shadow(0 0 48px rgba(6,182,212,0.15))",
               willChange: "transform",
+              ...LOGO_MASK,
             }}
-            onError={handleImgError}
             loading="eager"
             decoding="async"
           />

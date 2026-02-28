@@ -10,7 +10,7 @@
  */
 
 import sharp from 'sharp';
-import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,7 +19,7 @@ const PUBLIC_DIR = join(__dirname, '..', 'public');
 
 // Prefer PNG logo if available, else use SVG
 const PNG_SOURCE = join(PUBLIC_DIR, 'logo-source.png');
-const SVG_SOURCE = join(PUBLIC_DIR, 'eku-icon.svg');
+const BRAND_LOGO = join(PUBLIC_DIR, 'brand', 'express-kids-universe-logo.png');
 
 const ICONS = [
   { name: 'favicon-16x16.png', size: 16 },
@@ -37,12 +37,11 @@ async function generateIcons() {
   if (existsSync(PNG_SOURCE)) {
     console.log('✅ Using PNG source:', PNG_SOURCE);
     source = sharp(PNG_SOURCE);
-  } else if (existsSync(SVG_SOURCE)) {
-    console.log('✅ Using SVG source:', SVG_SOURCE);
-    const svgBuffer = readFileSync(SVG_SOURCE);
-    source = sharp(svgBuffer, { density: 300 });
+  } else if (existsSync(BRAND_LOGO)) {
+    console.log('✅ Using brand logo:', BRAND_LOGO);
+    source = sharp(BRAND_LOGO);
   } else {
-    console.error('❌ No source icon found. Place logo-source.png or eku-icon.svg in public/');
+    console.error('❌ No source icon found. Place logo-source.png in public/ or brand logo in public/brand/');
     process.exit(1);
   }
 
