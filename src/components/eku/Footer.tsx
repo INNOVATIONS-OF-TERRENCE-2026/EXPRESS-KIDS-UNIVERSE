@@ -15,17 +15,18 @@ export function Footer() {
           Founded &amp; Engineered by {brand.founder}
         </p>
         <p className="text-xs text-muted-foreground/60">
-          Gloria Milliner — President · Terrence Milliner Jr. — Vice President · Tiara Smith — CFO
+          {brand.leadership.map((l) => `${l.name} — ${l.title}`).join(" · ")}
         </p>
         <p className="text-xs text-muted-foreground/50 italic">
           {brand.foundation}
         </p>
 
-        <div className="flex gap-6 text-sm text-muted-foreground mt-2">
+        <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground mt-2">
           <Link to="/legal/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
           <Link to="/legal/terms" className="hover:text-foreground transition-colors">Terms</Link>
           <Link to="/parents" className="hover:text-foreground transition-colors">Parents</Link>
           <Link to="/leadership" className="hover:text-foreground transition-colors">Leadership</Link>
+          <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
         </div>
 
         <p className="text-xs text-muted-foreground/50">&copy; {new Date().getFullYear()} {brand.name}. All rights reserved.</p>

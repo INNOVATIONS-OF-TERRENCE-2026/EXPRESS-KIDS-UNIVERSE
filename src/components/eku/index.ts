@@ -19,3 +19,5 @@ export { NeonGlow } from "./NeonGlow";
 export { CosmicDust } from "./CosmicDust";
 export { NebulaCloud } from "./NebulaCloud";
 export { Footer } from "./Footer";
+export { StudioIntro } from "../StudioIntro";
+export { WebGLStage } from "../WebGLStage";

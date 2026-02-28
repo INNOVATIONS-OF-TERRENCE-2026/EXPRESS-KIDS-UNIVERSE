@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { GlassNav, PageTransition3D } from "@/components/eku";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { StudioIntro } from "@/components/StudioIntro";
 import Landing from "./pages/Landing";
 import CreateWizard from "./pages/CreateWizard";
 import CreateStatus from "./pages/CreateStatus";
@@ -16,6 +17,8 @@ import Auth from "./pages/Auth";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Leadership from "./pages/Leadership";
+import StudioDashboard from "./pages/StudioDashboard";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +39,8 @@ function AppRoutes() {
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/leadership" element={<Leadership />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/dashboard" element={<ProtectedRoute><StudioDashboard /></ProtectedRoute>} />
           <Route path="/create" element={<ProtectedRoute><CreateWizard /></ProtectedRoute>} />
           <Route path="/create/status" element={<ProtectedRoute><CreateStatus /></ProtectedRoute>} />
           <Route path="/adventure/:storyId" element={<ProtectedRoute><AdventureResults /></ProtectedRoute>} />
@@ -58,6 +63,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <StudioIntro />
           <AppRoutes />
         </AuthProvider>
       </BrowserRouter>

@@ -438,3 +438,72 @@
   0%, 100% { transform: translateX(-120%); }
   50%      { transform: translateX(120%); }
 }
+
+/* =========================================================
+   StudioIntro — Cinematic Intro Sequence Animations
+   ========================================================= */
+
+/* Star twinkle animation */
+.intro-star {
+  position: absolute;
+  border-radius: 50%;
+  background: white;
+  animation: intro-star-twinkle var(--star-dur, 2s) ease-in-out infinite alternate;
+  animation-delay: var(--star-delay, 0s);
+  opacity: 0;
+}
+
+@keyframes intro-star-twinkle {
+  0%   { opacity: 0; transform: scale(0.5); }
+  50%  { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0.6; transform: scale(0.8); }
+}
+
+/* Orbit ring around logo */
+.intro-orbit-ring {
+  position: absolute;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 50%;
+  animation: intro-orbit-spin 6s linear infinite;
+}
+
+@keyframes intro-orbit-spin {
+  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Light sweep sheen across intro */
+.intro-light-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.intro-light-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.12),
+    transparent
+  );
+  animation: intro-sweep-move 2s ease-in-out forwards;
+  animation-delay: 2.5s;
+  pointer-events: none;
+}
+
+@keyframes intro-sweep-move {
+  0%   { left: -100%; }
+  100% { left: 120%; }
+}
+
+/* Intro glow pulse */
+@keyframes intro-glow-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.8; transform: scale(1.15); }
+}
