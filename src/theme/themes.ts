@@ -419,11 +419,28 @@ const THEMES: ThemeDefinition[] = [
 
 export const DEFAULT_THEME_ID = "cinematic-prime";
 
+/* ── Seasonal + AI Integration ── */
+import { SEASONAL_THEMES } from "./seasonalThemes";
+import {
+  AI_DYNAMIC_THEME_ID,
+  buildDynamicTheme,
+} from "@/lib/theme/dynamicThemeGenerator";
+
+/** Combined lookup: core → seasonal → AI dynamic */
 export function getThemeById(id: string): ThemeDefinition | undefined {
-  return THEMES.find((t) => t.id === id);
+  if (id === AI_DYNAMIC_THEME_ID) return buildDynamicTheme();
+  return THEMES.find((t) => t.id === id)
+    ?? SEASONAL_THEMES.find((t) => t.id === id);
 }
 
+/** Returns all static themes (core + seasonal). AI dynamic is excluded
+ *  because it's generated on the fly. */
 export function getAllThemes(): ThemeDefinition[] {
+  return [...THEMES, ...SEASONAL_THEMES];
+}
+
+/** Only the 10 core themes (for category display) */
+export function getCoreThemes(): ThemeDefinition[] {
   return THEMES;
 }
 

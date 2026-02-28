@@ -7,6 +7,7 @@ import { GlassNav, PageTransition3D } from "@/components/eku";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import { StudioIntro } from "@/components/StudioIntro";
+import { SeasonalParticles } from "@/components/SeasonalParticles";
 import Landing from "./pages/Landing";
 import CreateWizard from "./pages/CreateWizard";
 import CreateStatus from "./pages/CreateStatus";
@@ -68,6 +69,7 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <StudioIntro />
+            <SeasonalParticles />
             <AppRoutes />
           </AuthProvider>
         </BrowserRouter>
