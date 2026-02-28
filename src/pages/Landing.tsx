@@ -3,11 +3,12 @@ import { motion } from "framer-motion";
 import { Sparkles, Wand2, BookOpen, Save, Shield, Lock, Images, Rocket, Star } from "lucide-react";
 import { 
   AuroraGradient, StarfieldParticles, CinematicSpotlight, CinematicButton, 
-  StaggerContainer, StaggerItem, LogoBrand, ShootingStars, FloatingOrbs3D,
+  StaggerContainer, StaggerItem, ShootingStars, FloatingOrbs3D,
   CosmicDust, NebulaCloud, NeonGlow, Tilt3DCard,
 } from "@/components/eku";
 import { Footer } from "@/components/eku/Footer";
 import { brand } from "@/lib/brand";
+import { StudioLogoEngine } from "@/components/eku/StudioLogoEngine";
 
 export default function Landing() {
   return (
@@ -35,30 +36,9 @@ export default function Landing() {
               </motion.div>
             </StaggerItem>
 
+            {/* CINEMATIC STUDIO LOGO ENGINE */}
             <StaggerItem className="flex justify-center mb-8">
-              <NeonGlow color="aurora" intensity="high" pulse>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.5, rotateY: -30 }}
-                  animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                  transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-                  className="relative"
-                  style={{ perspective: "1000px" }}
-                >
-                  <motion.img
-                    src={brand.logoSrc}
-                    alt={brand.logoAlt}
-                    className="w-[280px] h-auto md:w-[420px] lg:w-[520px] object-contain drop-shadow-[0_0_40px_rgba(168,85,247,0.4)] relative z-10"
-                    animate={{ y: [0, -12, 0], rotateY: [0, 3, -3, 0] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                    style={{ transformStyle: "preserve-3d" }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = brand.logoFallback; }}
-                  />
-                  <div className="absolute inset-0 -z-10" style={{
-                    background: "radial-gradient(ellipse at center, rgba(168,85,247,0.2) 0%, rgba(6,182,212,0.1) 40%, transparent 70%)",
-                    filter: "blur(40px)", transform: "scale(1.5)",
-                  }} />
-                </motion.div>
-              </NeonGlow>
+              <StudioLogoEngine size="hero" />
             </StaggerItem>
 
             <StaggerItem>

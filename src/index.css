@@ -384,3 +384,57 @@
   initial-value: 135deg;
   inherits: false;
 }
+
+/* =========================================================
+   StudioLogoEngine — Cinematic Animation System
+   GPU-composited: transform + opacity only
+   ========================================================= */
+
+/* Orbital sparkle ring — slow rotation */
+.studio-sparkle-ring {
+  animation: studio-ring-orbit 20s linear infinite;
+  pointer-events: none;
+}
+
+/* Individual sparkle pulse */
+.studio-sparkle {
+  animation: studio-sparkle-pulse 3s ease-in-out infinite alternate;
+}
+
+/* Light sweep effect — gradient sheen across logo */
+.studio-light-sweep {
+  position: relative;
+}
+.studio-light-sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.15) 40%,
+    rgba(255, 255, 255, 0.08) 45%,
+    transparent 60%
+  );
+  transform: translateX(-120%);
+  animation: studio-light-sweep-move 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 15;
+}
+
+@keyframes studio-ring-orbit {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes studio-sparkle-pulse {
+  0%   { opacity: 0.3; transform: rotate(var(--_angle, 0deg)) translateX(var(--_radius, 100px)) rotate(calc(-1 * var(--_angle, 0deg))) scale(0.8); }
+  100% { opacity: 0.9; transform: rotate(var(--_angle, 0deg)) translateX(var(--_radius, 100px)) rotate(calc(-1 * var(--_angle, 0deg))) scale(1.3); }
+}
+
+@keyframes studio-light-sweep-move {
+  0%, 100% { transform: translateX(-120%); }
+  50%      { transform: translateX(120%); }
+}

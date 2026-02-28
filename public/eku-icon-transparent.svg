@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="33%" style="stop-color:#06b6d4"/>
+      <stop offset="66%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="textE" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b6b"/>
+      <stop offset="100%" style="stop-color:#ff3366"/>
+    </linearGradient>
+    <linearGradient id="textK" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4ecdc4"/>
+      <stop offset="100%" style="stop-color:#44e88c"/>
+    </linearGradient>
+    <linearGradient id="textS" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="filmStrip" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="50%" style="stop-color:#ff6b6b"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="outerGlow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- NO background circle — fully transparent -->
+  <!-- Subtle aurora ring (no fill) -->
+  <circle cx="256" cy="256" r="240" fill="none" stroke="url(#aurora)" stroke-width="2" opacity="0.3"/>
+  <!-- Stars -->
+  <circle cx="80" cy="100" r="3" fill="#fff" opacity="0.9" filter="url(#glow)"/>
+  <circle cx="420" cy="80" r="2.5" fill="#fff" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="60" cy="350" r="2" fill="#f59e0b" opacity="0.7" filter="url(#glow)"/>
+  <circle cx="450" cy="300" r="3" fill="#a855f7" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="350" cy="60" r="2" fill="#06b6d4" opacity="0.6" filter="url(#glow)"/>
+  <circle cx="150" cy="430" r="2.5" fill="#ec4899" opacity="0.7" filter="url(#glow)"/>
+  <circle cx="400" cy="420" r="2" fill="#f59e0b" opacity="0.6" filter="url(#glow)"/>
+  <circle cx="100" cy="200" r="1.5" fill="#fff" opacity="0.5"/>
+  <circle cx="300" cy="440" r="1.5" fill="#fff" opacity="0.4"/>
+  <!-- Four-point star decorations -->
+  <g fill="#f59e0b" filter="url(#glow)">
+    <polygon points="440,140 444,148 452,152 444,156 440,164 436,156 428,152 436,148" opacity="0.9"/>
+    <polygon points="100,380 103,386 109,389 103,392 100,398 97,392 91,389 97,386" opacity="0.7"/>
+  </g>
+  <!-- Film strip band bottom -->
+  <g opacity="0.35">
+    <rect x="50" y="390" width="412" height="32" rx="16" fill="url(#filmStrip)" opacity="0.3"/>
+    <rect x="70" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="96" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="122" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="148" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="338" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="364" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="390" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+    <rect x="416" y="396" width="16" height="20" rx="2" fill="rgba(0,0,0,0.4)"/>
+  </g>
+  <!-- Main text: EKS -->
+  <g filter="url(#outerGlow)">
+    <text x="256" y="260" text-anchor="middle" font-family="'Arial Black','Impact',sans-serif" font-weight="900" font-size="160" letter-spacing="-5">
+      <tspan fill="url(#textE)">E</tspan><tspan fill="url(#textK)">K</tspan><tspan fill="url(#textS)">S</tspan>
+    </text>
+  </g>
+  <!-- Subtitle -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="28" fill="#f59e0b" letter-spacing="8" filter="url(#glow)">STUDIOS</text>
+  <!-- Small rocket icon -->
+  <g transform="translate(380,100) rotate(35)" opacity="0.9" filter="url(#glow)">
+    <ellipse cx="0" cy="0" rx="8" ry="16" fill="#ff3366"/>
+    <ellipse cx="0" cy="-8" rx="4" ry="6" fill="#06b6d4"/>
+    <polygon points="-8,8 0,16 8,8" fill="#f59e0b"/>
+    <circle cx="0" cy="-2" r="3" fill="#fff" opacity="0.8"/>
+  </g>
+</svg>

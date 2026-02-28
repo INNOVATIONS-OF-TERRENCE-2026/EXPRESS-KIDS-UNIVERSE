@@ -9,6 +9,8 @@ export { PosterPreviewCard } from "./PosterPreviewCard";
 export { PortalLoadingOverlay } from "./PortalLoadingOverlay";
 export { EmptyState } from "./EmptyState";
 export { LogoBrand } from "./LogoBrand";
+export { BrandLogo } from "./BrandLogo";
+export { StudioLogoEngine } from "./StudioLogoEngine";
 export { PwaInstallButton } from "./PwaInstallButton";
 export { ShootingStars } from "./ShootingStars";
 export { FloatingOrbs3D } from "./FloatingOrbs3D";

@@ -4,7 +4,7 @@ import { Sparkles, Images, Shield, HelpCircle, Menu, X, LogIn, LogOut, Volume2, 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { LogoBrand } from "./LogoBrand";
+import { BrandLogo } from "./BrandLogo";
 import { PwaInstallButton } from "./PwaInstallButton";
 import { brand } from "@/lib/brand";
 import { audioManager } from "@/lib/audio";
@@ -47,12 +47,7 @@ export function GlassNav() {
         <div className="max-w-7xl mx-auto">
           <div className="glass-card px-4 py-3 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 group">
-              <img
-                src={brand.logoSrc}
-                alt={brand.logoAlt}
-                className="h-9 w-auto object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).src = brand.logoFallback; }}
-              />
+              <BrandLogo size="sm" animate3D={false} />
               <span className="font-heading font-bold text-sm aurora-text hidden sm:block">{brand.name}</span>
             </Link>
 

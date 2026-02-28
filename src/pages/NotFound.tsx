@@ -2,7 +2,8 @@ import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Home, Rocket } from "lucide-react";
-import { AuroraGradient, StarfieldParticles, CinematicButton, ShootingStars, LogoBrand } from "@/components/eku";
+import { AuroraGradient, StarfieldParticles, CinematicButton, ShootingStars } from "@/components/eku";
+import { BrandLogo } from "@/components/eku/BrandLogo";
 
 const NotFound = () => {
   const location = useLocation();
@@ -24,7 +25,7 @@ const NotFound = () => {
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="flex justify-center mb-8">
-            <LogoBrand size="xl" animate3D />
+            <BrandLogo size="xl" animate3D />
           </div>
 
           <motion.h1

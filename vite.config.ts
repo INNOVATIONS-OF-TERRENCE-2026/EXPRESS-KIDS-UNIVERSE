@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
         "favicon-32x32.png",
         "apple-touch-icon.png",
         "eku-icon.svg",
-        "logo.png",
+        "eku-icon-transparent.svg",
         "offline.html",
       ],
       manifest: {
@@ -62,6 +62,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — covers poster logo
         runtimeCaching: [
           {
             // Cache Google Fonts

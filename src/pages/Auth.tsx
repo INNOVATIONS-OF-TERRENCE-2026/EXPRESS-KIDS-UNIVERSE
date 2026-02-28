@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, User, Sparkles } from "lucide-react";
-import { AuroraGradient, StarfieldParticles, CinematicButton, LogoBrand, ShootingStars } from "@/components/eku";
+import { AuroraGradient, StarfieldParticles, CinematicButton, ShootingStars } from "@/components/eku";
+import { BrandLogo } from "@/components/eku/BrandLogo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,7 +66,7 @@ export default function Auth() {
         >
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <LogoBrand size="lg" animate3D />
+              <BrandLogo size="lg" animate3D />
             </div>
             <h1 className="font-heading text-2xl font-bold aurora-text">
               {isSignUp ? "Join the Adventure" : "Welcome Back"}

@@ -1,7 +1,10 @@
 export const brand = {
   name: "Express Kids Universe",
   shortName: "EKU",
-  logoSrc: "/brand/express-kids-universe-logo.png",
+  /** Transparent SVG — no baked-in background, blends cleanly over any surface */
+  logoSrc: "/eku-icon-transparent.svg",
+  /** Original poster-style logo (has dark cinematic background) */
+  logoPoster: "/brand/express-kids-universe-logo.png",
   logoFallback: "/eku-icon.svg",
   logoAlt: "Express Kids Universe",
   founder: "Terrence Milliner Sr.",
