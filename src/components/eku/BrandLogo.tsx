@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, forwardRef } from "react";
 import { motion } from "framer-motion";
 import { brand } from "@/lib/brand";
 
@@ -56,13 +56,13 @@ const FILTER_MAP: Record<string, string> = {
   footer: "drop-shadow(0 0 2px rgba(255,180,0,0.1))",
 };
 
-export const BrandLogo = memo(function BrandLogo({
+export const BrandLogo = memo(forwardRef<HTMLDivElement, BrandLogoProps>(function BrandLogo({
   size = "md",
   variant = "hero",
   showText = false,
   className = "",
   animate3D = true,
-}: BrandLogoProps) {
+}: BrandLogoProps, ref) {
   const s = SIZE_MAP[size];
   const shouldAnimate = animate3D && variant !== "footer";
   const wrapperGlow = GLOW_MAP[variant] ?? GLOW_MAP.hero;
@@ -70,6 +70,7 @@ export const BrandLogo = memo(function BrandLogo({
 
   return (
     <motion.div
+      ref={ref}
       className={`inline-flex items-center gap-3 ${className}`}
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -146,4 +147,4 @@ export const BrandLogo = memo(function BrandLogo({
       )}
     </motion.div>
   );
-});
+}));
