@@ -56,6 +56,21 @@ export const PACING_MODE_DESCRIPTIONS: Record<PacingMode, string> = {
   kids:        "Bright, playful pacing with fun surprises",
 };
 
+/** AI budget tier for Lucy Intelligence cost governance */
+export type BudgetMode = "eco" | "standard" | "studio";
+
+export const BUDGET_MODE_LABELS: Record<BudgetMode, string> = {
+  eco:      "Eco",
+  standard: "Standard",
+  studio:   "Studio",
+};
+
+export const BUDGET_MODE_DESCRIPTIONS: Record<BudgetMode, string> = {
+  eco:      "Lower cost — no AI animation, basic SFX",
+  standard: "Balanced quality and credit usage",
+  studio:   "Max quality — full AI animation, rich SFX",
+};
+
 /** A video job request */
 export interface VideoJobRequest {
   storyId: string;
@@ -65,6 +80,7 @@ export interface VideoJobRequest {
   voiceAssignments: VideoVoiceAssignment[];
   musicStyle?: string;
   pacingMode?: PacingMode;
+  budgetMode?: BudgetMode;
 }
 
 /** A video job in the pipeline */

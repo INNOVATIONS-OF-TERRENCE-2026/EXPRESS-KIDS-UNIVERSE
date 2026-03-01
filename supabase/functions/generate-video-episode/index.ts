@@ -77,10 +77,13 @@ serve(async (req) => {
       voiceAssignments,
       musicStyle,
       pacingMode = "story",
+      budgetMode = "standard",
     } = await req.json();
 
     const validPacingModes = ["story", "action", "documentary", "kids"];
     const pacing = validPacingModes.includes(pacingMode) ? pacingMode : "story";
+    const validBudgetModes = ["eco", "standard", "studio"];
+    const budget = validBudgetModes.includes(budgetMode) ? budgetMode : "standard";
 
     if (!jobId || !storyId) return jsonError("Missing jobId or storyId", 400);
 
@@ -170,6 +173,12 @@ serve(async (req) => {
       transitionIn?: { type: string; durationSec: number };
       /** Transition out of this scene */
       transitionOut?: { type: string; durationSec: number };
+      /** 3-Act structure assignment */
+      act?: 1 | 2 | 3;
+      /** Narrative role in arc */
+      narrativeRole?: string;
+      /** Tension level 0–1 */
+      tensionLevel?: number;
     }
 
     const compositionScenes: ManifestScene[] = [];
@@ -293,6 +302,80 @@ serve(async (req) => {
 
     // Update total duration from orchestrated timings
     totalDuration = orchestration.totalDuration;
+
+    /* ──────────────────────────────────────────────
+     * STEP 3.3 — 3-Act Arc Structure + Duration Lock
+     *
+     * Assign each scene to Act I/II/III and compute
+     * tension curve. Then validate total duration
+     * matches the user-selected target ± 0.2s.
+     * ────────────────────────────────────────────── */
+    const DURATION_SEC_MAP: Record<string, number> = { short: 120, medium: 300, full: 900 };
+    const targetDurSec = DURATION_SEC_MAP[duration] ?? 120;
+    const sceneCount = compositionScenes.length;
+
+    // Assign 3-act structure
+    const act1Count = Math.max(1, Math.round(sceneCount * 0.25));
+    const act3Count = Math.max(1, Math.round(sceneCount * 0.25));
+    const act2Count = Math.max(1, sceneCount - act1Count - act3Count);
+
+    const arcRoles: string[] = [];
+    for (let i = 0; i < sceneCount; i++) {
+      if (i < act1Count) {
+        arcRoles.push(i === 0 ? "introduction" : i === act1Count - 1 ? "inciting-incident" : "world-building");
+      } else if (i < act1Count + act2Count) {
+        const mid = act1Count + Math.floor(act2Count / 2);
+        if (i === mid) arcRoles.push("midpoint-twist");
+        else if (i === act1Count + act2Count - 1) arcRoles.push("climax");
+        else arcRoles.push("rising-action");
+      } else {
+        arcRoles.push(i === sceneCount - 1 ? "resolution" : "falling-action");
+      }
+    }
+
+    for (let i = 0; i < compositionScenes.length; i++) {
+      const pos = sceneCount > 1 ? i / (sceneCount - 1) : 0.5;
+      const tension = Math.max(0, Math.min(1,
+        pos < 0.25 ? 0.15 + pos * 1.0 :
+        pos < 0.5 ? 0.40 + (pos - 0.25) * 1.4 :
+        pos < 0.75 ? 0.75 + (pos - 0.5) * 1.0 :
+        1.0 - (pos - 0.75) * 3.0
+      ));
+      compositionScenes[i].act = i < act1Count ? 1 : i < act1Count + act2Count ? 2 : 3;
+      compositionScenes[i].narrativeRole = arcRoles[i];
+      compositionScenes[i].tensionLevel = Math.round(tension * 100) / 100;
+    }
+
+    // Duration Lock — auto-adjust scenes to match target
+    const TOLERANCE = 0.2;
+    let driftSec = totalDuration - targetDurSec;
+
+    if (Math.abs(driftSec) > TOLERANCE) {
+      if (driftSec > 0) {
+        // Over — compress pacing
+        const compressionFactor = Math.max(0.85, targetDurSec / totalDuration);
+        let newTotal = 0;
+        for (const s of compositionScenes) {
+          if (s.sceneDuration) {
+            s.sceneDuration = Math.round(s.sceneDuration * compressionFactor * 100) / 100;
+          }
+          newTotal += s.sceneDuration || s.audioDurationSec;
+        }
+        totalDuration = Math.round(newTotal * 100) / 100;
+      } else {
+        // Under — extend with BGM outro padding
+        const extensionPerScene = Math.abs(driftSec) / sceneCount;
+        let newTotal = 0;
+        for (const s of compositionScenes) {
+          if (s.sceneDuration) {
+            s.sceneDuration = Math.round((s.sceneDuration + extensionPerScene) * 100) / 100;
+          }
+          newTotal += s.sceneDuration || s.audioDurationSec;
+        }
+        totalDuration = Math.round(newTotal * 100) / 100;
+      }
+      driftSec = totalDuration - targetDurSec;
+    }
 
     /* ──────────────────────────────────────────────
      * STEP 3.5 — Animate scene images with RunwayML (parallel)
@@ -446,7 +529,20 @@ serve(async (req) => {
       narratorVoiceId: elVoiceId,
       pacingProfile: pacing,
       musicStyle: musicStyle || "magical",
-      orchestrationVersion: 1,
+      orchestrationVersion: 2,
+      budgetMode: budget,
+      arcStructure: {
+        act1Scenes: act1Count,
+        act2Scenes: act2Count,
+        act3Scenes: act3Count,
+        totalScenes: sceneCount,
+      },
+      durationLock: {
+        targetSec: targetDurSec,
+        actualSec: totalDuration,
+        driftSec: Math.round(driftSec * 100) / 100,
+        locked: Math.abs(driftSec) <= 0.2,
+      },
       createdAt: new Date().toISOString(),
     };
 

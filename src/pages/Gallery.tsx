@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Images, Trash2, Film, Play, Download, Clock } from "lucide-react";
+import { Images, Trash2, Film, Play, Download, Clock, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuroraGradient, PosterPreviewCard, EmptyState, CinematicButton } from "@/components/eku";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getGalleryVideos, deleteGalleryItem, type GalleryVideoItem } from "@/lib/galleryService";
 import { ProPlayer } from "@/components/ProPlayer";
+import { PreviewAutoplayController } from "@/lib/previewAutoplayEngine";
 
 interface StoryItem {
   id: string;
@@ -33,6 +34,25 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<GalleryTab>("stories");
   const [playingVideo, setPlayingVideo] = useState<GalleryVideoItem | null>(null);
+  const [previewEnabled, setPreviewEnabled] = useState(true);
+  const previewRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const previewCtrl = useRef<PreviewAutoplayController | null>(null);
+
+  // Initialize preview autoplay controller
+  useEffect(() => {
+    const ctrl = new PreviewAutoplayController();
+    previewCtrl.current = ctrl;
+    const stored = localStorage.getItem("eku_preview_autoplay");
+    if (stored !== null) {
+      const enabled = stored === "true";
+      setPreviewEnabled(enabled);
+      ctrl.setAutoplayEnabled(enabled);
+    }
+    return () => {
+      ctrl.destroy();
+      previewCtrl.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -185,13 +205,38 @@ export default function Gallery() {
                 <EmptyState icon={Film} title="No videos yet" description="Create a video in the Video Studio and it will automatically appear here." actionLabel="Go to Video Studio" onAction={() => navigate("/studio/video")} />
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {/* Preview autoplay toggle */}
+                  <div className="col-span-full flex justify-end mb-1">
+                    <button
+                      onClick={() => {
+                        const next = !previewEnabled;
+                        setPreviewEnabled(next);
+                        previewCtrl.current?.setAutoplayEnabled(next);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {previewEnabled ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {previewEnabled ? "Autoplay previews on" : "Autoplay previews off"}
+                    </button>
+                  </div>
                   {videoItems.map((vid) => (
                     <div
                       key={vid.id}
                       className="glass-card overflow-hidden rounded-2xl group relative cursor-pointer"
                       onClick={() => setPlayingVideo(vid)}
+                      onMouseEnter={() => {
+                        if (!previewEnabled || !vid.output_url) return;
+                        const el = previewRefs.current.get(vid.id);
+                        if (el) {
+                          previewCtrl.current?.registerVideo(vid.id, el);
+                          previewCtrl.current?.onHoverEnter(vid.id);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        previewCtrl.current?.onHoverLeave(vid.id);
+                      }}
                     >
-                      {/* Poster / thumbnail */}
+                      {/* Poster / thumbnail + preview video */}
                       <div className="relative aspect-video bg-muted/20 overflow-hidden">
                         {vid.poster_url ? (
                           <img
@@ -204,6 +249,19 @@ export default function Gallery() {
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
                             <Film className="w-10 h-10 text-muted-foreground/50" />
                           </div>
+                        )}
+                        {/* Inline preview video (hidden until hover autoplay) */}
+                        {vid.output_url && previewEnabled && (
+                          <video
+                            ref={(el) => {
+                              if (el) previewRefs.current.set(vid.id, el);
+                              else previewRefs.current.delete(vid.id);
+                            }}
+                            className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                            muted
+                            playsInline
+                            preload="none"
+                          />
                         )}
                         {/* Play overlay */}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">

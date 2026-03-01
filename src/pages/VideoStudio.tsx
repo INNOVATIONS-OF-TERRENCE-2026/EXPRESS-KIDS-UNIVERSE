@@ -28,6 +28,7 @@ import {
   Volume2,
   Music,
   Sparkles,
+  Wallet,
 } from "lucide-react";
 import { AuroraGradient, CinematicButton, StaggerContainer, StaggerItem } from "@/components/eku";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,10 +36,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { PRESET_VOICES } from "@/lib/studio/voice/voiceTypes";
 import {
   DURATION_LABELS,
+  DURATION_SEC,
   PACING_MODE_LABELS,
   PACING_MODE_DESCRIPTIONS,
+  BUDGET_MODE_LABELS,
+  BUDGET_MODE_DESCRIPTIONS,
   type VideoDuration,
   type PacingMode,
+  type BudgetMode,
   type VideoJob,
   type VideoVoiceAssignment,
   type CompositionManifest,
@@ -53,6 +58,7 @@ import {
 } from "@/lib/studio/video/videoJobStore";
 import { renderVideoFromManifest, uploadRenderedVideo } from "@/lib/studio/video/videoRenderer";
 import { saveVideoToGallery } from "@/lib/galleryService";
+import { lucyEstimate, formatCreditCost, getRiskColor } from "@/lib/lucyIntelligence";
 import { ProPlayer } from "@/components/ProPlayer";
 import { toast } from "sonner";
 
@@ -69,6 +75,7 @@ export default function VideoStudio() {
   const [selectedStory, setSelectedStory] = useState<StoryOption | null>(null);
   const [duration, setDuration] = useState<VideoDuration>("short");
   const [pacingMode, setPacingMode] = useState<PacingMode>("kids");
+  const [budgetMode, setBudgetMode] = useState<BudgetMode>("standard");
   const [jobs, setJobs] = useState<VideoJob[]>([]);
   const [creating, setCreating] = useState(false);
   const [playingJob, setPlayingJob] = useState<VideoJob | null>(null);
@@ -322,6 +329,7 @@ export default function VideoStudio() {
       voiceAssignments,
       musicStyle: "magical",
       pacingMode,
+      budgetMode,
     };
 
     // Create job: auth users try DB persist + edge function; falls back to
@@ -380,7 +388,7 @@ export default function VideoStudio() {
     setCreating(false);
     setSelectedStory(null);
     toast.info("Video generation started!");
-  }, [selectedStory, duration, creating, user, startPolling, startClientRender, autoSaveToGallery]);
+  }, [selectedStory, duration, budgetMode, creating, user, startPolling, startClientRender, autoSaveToGallery, pacingMode]);
 
   /* ── Watch handler ── */
   const handleWatch = useCallback((job: VideoJob) => {
@@ -538,6 +546,30 @@ export default function VideoStudio() {
                   </div>
                 </div>
 
+                {/* Budget mode selector (Lucy Intelligence) */}
+                <div className="mb-6">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
+                    Budget Mode
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {(Object.keys(BUDGET_MODE_LABELS) as BudgetMode[]).map((b) => (
+                      <button
+                        key={b}
+                        onClick={() => setBudgetMode(b)}
+                        title={BUDGET_MODE_DESCRIPTIONS[b]}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                          budgetMode === b
+                            ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                        }`}
+                      >
+                        <Wallet className="w-3.5 h-3.5" />
+                        {BUDGET_MODE_LABELS[b]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Voice & Music info */}
                 <div className="flex items-center gap-4 mb-6 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1.5">
@@ -547,6 +579,44 @@ export default function VideoStudio() {
                     <Music className="w-4 h-4" /> Magical soundtrack
                   </span>
                 </div>
+
+                {/* Lucy Intelligence — cost estimate */}
+                {selectedStory && (() => {
+                  const estimate = lucyEstimate({
+                    durationSec: DURATION_SEC[duration],
+                    budgetMode,
+                    sceneCount: Math.max(3, Math.round(DURATION_SEC[duration] / 20)),
+                    sfxCueCount: Math.max(2, Math.round(DURATION_SEC[duration] / 30)),
+                    plan: "free",
+                    currentUsed: 0,
+                  });
+                  const riskColor = getRiskColor(estimate.riskLevel);
+                  return (
+                    <div className={`rounded-xl border p-4 mb-6 ${
+                      estimate.riskLevel === "critical" ? "border-red-400/40 bg-red-500/5" :
+                      estimate.riskLevel === "high"     ? "border-orange-400/40 bg-orange-500/5" :
+                                                          "border-primary/20 bg-primary/5"
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium flex items-center gap-1.5">
+                          <Wallet className="w-4 h-4" /> Lucy Estimate
+                        </span>
+                        <span className={`text-sm font-bold ${riskColor}`}>
+                          {formatCreditCost(estimate.totalCredits)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        <p>TTS: {estimate.breakdown.tts}cr · Images: {estimate.breakdown.images}cr · Animation: {estimate.breakdown.animation}cr</p>
+                        <p>SFX: {estimate.breakdown.sfx}cr · BGM: {estimate.breakdown.bgm}cr · Storage: {estimate.breakdown.storage}cr</p>
+                      </div>
+                      {estimate.suggestions.length > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground italic">
+                          💡 {estimate.suggestions[0]}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Generate button */}
                 <CinematicButton
