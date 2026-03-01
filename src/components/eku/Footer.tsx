@@ -21,9 +21,23 @@ export function Footer() {
           {brand.foundation}
         </p>
 
+        {/* Contact row */}
+        <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground mt-1">
+          <a href="mailto:expresskids-studio@expressaudiopower.com" className="hover:text-foreground transition-colors">
+            expresskids-studio@expressaudiopower.com
+          </a>
+          <span className="hidden sm:inline text-border">|</span>
+          <a href="tel:+15313489321" className="hover:text-foreground transition-colors">
+            +1 (531) 348-9321
+          </a>
+        </div>
+
+        {/* Nav links — row 1: main pages */}
         <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground mt-2">
           <Link to="/legal/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
           <Link to="/legal/terms" className="hover:text-foreground transition-colors">Terms</Link>
+          <Link to="/legal/refund-policy" className="hover:text-foreground transition-colors">Refund Policy</Link>
+          <Link to="/legal/subscription-policy" className="hover:text-foreground transition-colors">Subscription Policy</Link>
           <Link to="/parents" className="hover:text-foreground transition-colors">Parents</Link>
           <Link to="/leadership" className="hover:text-foreground transition-colors">Leadership</Link>
           <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>

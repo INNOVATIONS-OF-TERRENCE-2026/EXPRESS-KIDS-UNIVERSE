@@ -5,7 +5,7 @@ import {
   Film, CreditCard, RefreshCw, Mic, Package, Users,
   Search, ChevronDown, ChevronUp, Send, Paperclip, X,
   CheckCircle2, AlertCircle, Clock, Shield, Lock, ExternalLink,
-  Loader2, HelpCircle, FileText, Heart,
+  Loader2, HelpCircle, FileText, Heart, Mail, Phone, MapPin,
 } from "lucide-react";
 import {
   AuroraGradient, StarfieldParticles, StaggerContainer, StaggerItem,
@@ -14,6 +14,16 @@ import { Footer } from "@/components/eku/Footer";
 import { brand } from "@/lib/brand";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+
+/* ═══════════════════════════════════════════════════════
+   BUSINESS CONTACT CONSTANTS
+   ═══════════════════════════════════════════════════════ */
+const SUPPORT_EMAIL = "expresskids-studio@expressaudiopower.com";
+const SUPPORT_PHONE = "+1 (531) 348-9321";
+const SUPPORT_PHONE_TEL = "tel:+15313489321";
+const BUSINESS_ADDRESS = "4917 Peninsula Way Apt 6106, Garland, TX 75043, United States";
+const BUSINESS_ENTITY = "Express Audio Power Co";
+const LAST_UPDATED = "March 1, 2026";
 
 /* ═══════════════════════════════════════════════════════
    TYPES
@@ -277,11 +287,60 @@ export default function Support() {
             </h1>
           </StaggerItem>
           <StaggerItem>
-            <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-2">
               We're here to help your family's creative journey.
+            </p>
+            <p className="text-xs text-muted-foreground/60">
+              Last updated: {LAST_UPDATED}
             </p>
           </StaggerItem>
         </StaggerContainer>
+
+        {/* ────────────────── DIRECT CONTACT CARDS ────────────────── */}
+        <section className="mb-20">
+          <div className="grid sm:grid-cols-3 gap-4">
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="glass-card p-5 flex items-start gap-3 hover:ring-1 hover:ring-primary/30 transition-all group"
+              aria-label="Email support"
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Mail className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm mb-0.5">Email Us</p>
+                <p className="text-xs text-primary group-hover:underline break-all">{SUPPORT_EMAIL}</p>
+                <p className="text-xs text-muted-foreground mt-1">Response within 24–48 hours</p>
+              </div>
+            </a>
+
+            <a
+              href={SUPPORT_PHONE_TEL}
+              className="glass-card p-5 flex items-start gap-3 hover:ring-1 hover:ring-primary/30 transition-all group"
+              aria-label="Call support"
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Phone className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm mb-0.5">Call Us</p>
+                <p className="text-xs text-primary group-hover:underline">{SUPPORT_PHONE}</p>
+                <p className="text-xs text-muted-foreground mt-1">Mon–Fri, 9 AM – 5 PM CT</p>
+              </div>
+            </a>
+
+            <div className="glass-card p-5 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <MapPin className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm mb-0.5">{BUSINESS_ENTITY}</p>
+                <p className="text-xs text-muted-foreground">4917 Peninsula Way Apt 6106</p>
+                <p className="text-xs text-muted-foreground">Garland, TX 75043, US</p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ────────────────── QUICK ACTIONS ────────────────── */}
         <section className="mb-20">
@@ -418,6 +477,15 @@ export default function Support() {
               <strong>Statement descriptor:</strong> Charges from Express Kids Universe appear on your bank statement as{" "}
               <span className="font-mono text-foreground">"EXPRESS KIDS UNIVERSE"</span> or{" "}
               <span className="font-mono text-foreground">"EKU App"</span>.
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-4 text-xs">
+              <Link to="/legal/refund-policy" className="text-primary hover:underline flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5" /> Refund Policy
+              </Link>
+              <Link to="/legal/subscription-policy" className="text-primary hover:underline flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5" /> Subscription &amp; Cancellation Policy
+              </Link>
             </div>
           </div>
         </section>
@@ -821,6 +889,18 @@ export default function Support() {
                 className="text-primary hover:underline flex items-center gap-1"
               >
                 <FileText className="w-3.5 h-3.5" /> Terms of Service
+              </Link>
+              <Link
+                to="/legal/refund-policy"
+                className="text-primary hover:underline flex items-center gap-1"
+              >
+                <FileText className="w-3.5 h-3.5" /> Refund Policy
+              </Link>
+              <Link
+                to="/legal/subscription-policy"
+                className="text-primary hover:underline flex items-center gap-1"
+              >
+                <FileText className="w-3.5 h-3.5" /> Subscription Policy
               </Link>
               <Link
                 to="/parents"

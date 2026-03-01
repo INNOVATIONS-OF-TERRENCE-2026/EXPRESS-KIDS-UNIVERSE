@@ -25,6 +25,8 @@ import SeoSuite from "./pages/SeoSuite";
 import SceneDetail from "./pages/SceneDetail";
 import VideoStudio from "./pages/VideoStudio";
 import Support from "./pages/Support";
+import RefundPolicy from "./pages/RefundPolicy";
+import SubscriptionPolicy from "./pages/SubscriptionPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +60,8 @@ function AppRoutes() {
           <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/legal/privacy" element={<Privacy />} />
           <Route path="/legal/terms" element={<Terms />} />
+          <Route path="/legal/refund-policy" element={<RefundPolicy />} />
+          <Route path="/legal/subscription-policy" element={<SubscriptionPolicy />} />
           <Route path="/support" element={<Support />} />
           <Route path="/help" element={<Support />} />
           <Route path="/customer-support" element={<Support />} />
