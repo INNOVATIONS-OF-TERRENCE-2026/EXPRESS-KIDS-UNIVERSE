@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Palette, Sparkles } from "lucide-react";
 import { getCoreThemes } from "@/theme/themes";
@@ -22,7 +22,7 @@ function ThemeSwatch({ theme, active }: { theme: ThemeDefinition; active: boolea
   return (
     <motion.div
       layout
-      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden cursor-pointer border-2 transition-colors duration-300 ${
+      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden cursor-pointer border-2 transition-colors duration-300 will-change-transform ${
         active ? "border-primary ring-2 ring-primary/30" : "border-white/10 hover:border-white/25"
       }`}
       whileHover={{ scale: 1.1, y: -3 }}
@@ -60,17 +60,16 @@ function ThemePreview({ theme }: { theme: ThemeDefinition }) {
 
   return (
     <motion.div
-      key={theme.id}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.8 }}
-      className="absolute inset-0 rounded-3xl overflow-hidden"
+      className="absolute inset-0 rounded-3xl overflow-hidden will-change-opacity"
       style={{ background: `hsl(${bg})` }}
     >
       {/* Aurora layers */}
       <motion.div
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 opacity-40 will-change-transform"
         animate={{ scale: [1, 1.08, 1] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         style={{
@@ -91,7 +90,7 @@ function ThemePreview({ theme }: { theme: ThemeDefinition }) {
 
 /* ── Section ─────────────────────────────────────────────── */
 export function ThemeShowcaseSection() {
-  const themes = getShowcaseThemes();
+  const themes = useMemo(() => getShowcaseThemes(), []);
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const reduced = useReducedMotion();
@@ -103,11 +102,28 @@ export function ThemeShowcaseSection() {
   // Auto-cycle every 4s
   useEffect(() => {
     if (paused || reduced) return;
-    const timer = setInterval(advance, 4000);
-    return () => clearInterval(timer);
+    const timer = window.setInterval(advance, 4000);
+    return () => window.clearInterval(timer);
   }, [paused, reduced, advance]);
 
   const activeTheme = themes[activeIndex];
+
+  // Precompute particle positions per theme change (prevents jitter)
+  const particles = useMemo(() => {
+    if (reduced) return [];
+    return Array.from({ length: 12 }).map((_, i) => {
+      const left = 10 + Math.random() * 80;
+      const top = 10 + Math.random() * 80;
+      const duration = 3 + Math.random() * 2;
+      const delay = Math.random() * 2;
+      return { i, left, top, duration, delay };
+    });
+  }, [activeIndex, reduced]);
+
+  const onSelectTheme = (i: number) => {
+    setActiveIndex(i);
+    setPaused(true);
+  };
 
   return (
     <section className="relative py-28 sm:py-36 px-4 overflow-hidden">
@@ -136,36 +152,53 @@ export function ThemeShowcaseSection() {
           className="relative w-full aspect-[16/9] rounded-3xl overflow-hidden glass-card-elevated mb-8"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
+          onPointerDown={() => setPaused(true)} // mobile-friendly pause
         >
           <AnimatePresence mode="wait">
-            {activeTheme && <ThemePreview theme={activeTheme} />}
+            {activeTheme && <ThemePreview key={activeTheme.id} theme={activeTheme} />}
           </AnimatePresence>
 
           {/* Particle spark overlay */}
-          <motion.div
-            key={activeIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-none"
-          >
-            {!reduced &&
-              Array.from({ length: 12 }).map((_, i) => (
+          {!reduced && (
+            <motion.div
+              key={activeIndex}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 pointer-events-none"
+            >
+              {particles.map((p) => (
                 <motion.span
-                  key={i}
+                  key={p.i}
                   className="absolute w-1 h-1 rounded-full bg-white/40"
-                  style={{ left: `${10 + Math.random() * 80}%`, top: `${10 + Math.random() * 80}%` }}
+                  style={{ left: `${p.left}%`, top: `${p.top}%` }}
                   animate={{ opacity: [0, 0.8, 0], scale: [0.5, 1.2, 0.5] }}
-                  transition={{ duration: 3 + Math.random() * 2, repeat: Infinity, delay: Math.random() * 2 }}
+                  transition={{ duration: p.duration, repeat: Infinity, delay: p.delay }}
                 />
               ))}
-          </motion.div>
+            </motion.div>
+          )}
+
+          {/* Small state badge */}
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+            <span className="text-xs px-3 py-1 rounded-full bg-black/40 text-white/80 backdrop-blur border border-white/10">
+              {reduced ? "Reduced Motion" : paused ? "Paused" : "Auto"}
+            </span>
+          </div>
         </div>
 
         {/* Swatch row */}
         <div className="flex flex-wrap justify-center gap-3">
           {themes.map((t, i) => (
-            <button key={t.id} onClick={() => { setActiveIndex(i); setPaused(true); }} aria-label={t.name}>
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onSelectTheme(i)}
+              onPointerDown={() => setPaused(true)}
+              aria-label={`Select theme: ${t.name}`}
+              aria-pressed={i === activeIndex}
+              className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
               <ThemeSwatch theme={t} active={i === activeIndex} />
             </button>
           ))}
@@ -180,7 +213,13 @@ function NeonIcon() {
   return (
     <motion.div
       className="inline-flex items-center gap-2 mb-6"
-      animate={{ filter: ["drop-shadow(0 0 8px hsl(var(--accent)/0.3))", "drop-shadow(0 0 16px hsl(var(--accent)/0.15))", "drop-shadow(0 0 8px hsl(var(--accent)/0.3))"] }}
+      animate={{
+        filter: [
+          "drop-shadow(0 0 8px hsl(var(--accent)/0.3))",
+          "drop-shadow(0 0 16px hsl(var(--accent)/0.15))",
+          "drop-shadow(0 0 8px hsl(var(--accent)/0.3))",
+        ],
+      }}
       transition={{ duration: 3, repeat: Infinity }}
     >
       <Palette className="w-6 h-6 text-accent" />
