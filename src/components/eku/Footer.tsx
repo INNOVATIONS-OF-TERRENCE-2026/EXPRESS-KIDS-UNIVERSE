@@ -27,6 +27,7 @@ export function Footer() {
           <Link to="/parents" className="hover:text-foreground transition-colors">Parents</Link>
           <Link to="/leadership" className="hover:text-foreground transition-colors">Leadership</Link>
           <Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
+          <Link to="/support" className="hover:text-foreground transition-colors">Support</Link>
         </div>
 
         <p className="text-xs text-muted-foreground/50">&copy; {new Date().getFullYear()} {brand.name}. All rights reserved.</p>

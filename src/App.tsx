@@ -24,6 +24,7 @@ import Pricing from "./pages/Pricing";
 import SeoSuite from "./pages/SeoSuite";
 import SceneDetail from "./pages/SceneDetail";
 import VideoStudio from "./pages/VideoStudio";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,9 @@ function AppRoutes() {
           <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/legal/privacy" element={<Privacy />} />
           <Route path="/legal/terms" element={<Terms />} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/help" element={<Support />} />
+          <Route path="/customer-support" element={<Support />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </PageTransition3D>

@@ -157,6 +157,51 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          id: string
+          user_id: string | null
+          email: string
+          full_name: string
+          category: string
+          order_id: string | null
+          subscription_email: string | null
+          message: string
+          attachment_url: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          email: string
+          full_name?: string
+          category?: string
+          order_id?: string | null
+          subscription_email?: string | null
+          message: string
+          attachment_url?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          email?: string
+          full_name?: string
+          category?: string
+          order_id?: string | null
+          subscription_email?: string | null
+          message?: string
+          attachment_url?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gallery_items: {
         Row: {
           id: string
