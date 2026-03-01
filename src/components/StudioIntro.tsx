@@ -197,7 +197,7 @@ export const StudioIntro = memo(function StudioIntro({ theme, onComplete }: Stud
           key="studio-intro"
           className="fixed inset-0 z-[9999] flex items-center justify-center"
           style={{
-            background: `radial-gradient(ellipse at center, ${themeColors.inner} 0%, ${themeColors.outer} 50%, #000 100%)`,
+            background: `radial-gradient(ellipse at center, ${themeColors.inner} 0%, ${themeColors.outer} 50%, #0e1026 100%)`,
           }}
           initial={{ opacity: 1 }}
           animate={{ opacity: phase === "fadeout" ? 0 : 1 }}

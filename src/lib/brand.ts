@@ -1,6 +1,6 @@
 export const brand = {
   name: "Express Kids Universe",
-  shortName: "EKU",
+  shortName: "Express Kids",
   studioName: "Express Kids Studios",
   /** Official cinematic full logo — the single brand mark for every surface */
   logoSrc: "/brand/express-kids-universe-logo.png",
