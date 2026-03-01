@@ -116,6 +116,10 @@ export async function getGalleryVideos(userId: string): Promise<GalleryVideoItem
 
 /* ── Delete gallery item ── */
 export async function deleteGalleryItem(id: string): Promise<boolean> {
+  // Local items (starts with "local_") — only in localStorage
+  if (id.startsWith("local_")) {
+    return deleteLocalGalleryItem(id);
+  }
   try {
     const { error } = await supabase.from("gallery_items").delete().eq("id", id);
     return !error;
@@ -158,4 +162,16 @@ function saveVideoToLocalGallery(job: VideoJob) {
 
 function isVideoSavedLocally(jobId: string): boolean {
   return getLocalVideoGallery().some((i) => i.job_id === jobId);
+}
+
+function deleteLocalGalleryItem(id: string): boolean {
+  try {
+    const items = getLocalVideoGallery();
+    const filtered = items.filter((i) => i.id !== id);
+    if (filtered.length === items.length) return false; // not found
+    localStorage.setItem(LOCAL_VIDEO_GALLERY_KEY, JSON.stringify(filtered));
+    return true;
+  } catch {
+    return false;
+  }
 }

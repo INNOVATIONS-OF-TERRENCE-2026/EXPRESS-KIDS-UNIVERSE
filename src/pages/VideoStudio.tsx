@@ -117,6 +117,9 @@ export default function VideoStudio() {
   );
 
   /* ── DB polling for active jobs ── */
+  // Polls Supabase for edge-function progress, syncs to local cache via pollJobFromDB
+  // which calls notify() → triggers any active subscriptions.
+  // No toasts here — subscription callbacks handle user-facing feedback.
   const startPolling = useCallback(
     (jobId: string) => {
       if (pollTimers.current.has(jobId)) return;
@@ -124,17 +127,18 @@ export default function VideoStudio() {
         const updated = await pollJobFromDB(jobId);
         if (!updated) return;
 
+        // pollJobFromDB syncs to local cache + calls notify()
+        // Subscription callbacks will pick up the update automatically.
+        // Also update state directly for on-mount recovery jobs (no subscription).
         setJobs((prev) =>
           prev.map((j) => (j.id === updated.id ? updated : j)),
         );
 
         if (updated.status === "complete") {
-          toast.success(`Video is ready!`);
           autoSaveToGallery(updated);
           clearInterval(timer);
           pollTimers.current.delete(jobId);
         } else if (updated.status === "failed") {
-          toast.error(updated.error || "Video generation failed");
           clearInterval(timer);
           pollTimers.current.delete(jobId);
         }
@@ -166,26 +170,39 @@ export default function VideoStudio() {
       musicStyle: "magical",
     };
 
-    let job: VideoJob;
+    // Create job: auth users try DB persist + edge function; falls back to
+    // local simulation automatically if DB tables don't exist yet.
+    const job = user
+      ? await createVideoJob(request, user.id)
+      : createVideoJobSync(request);
+
+    // ALWAYS subscribe to in-memory job updates.
+    // Works for BOTH paths:
+    //   - Local simulation calls notify() directly
+    //   - DB polling calls pollJobFromDB() which syncs to cache + calls notify()
+    const storyTitle = selectedStory.title;
+    const unsub = subscribeVideoJob(job.id, (updated) => {
+      setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+      if (updated.status === "complete") {
+        toast.success(`"${storyTitle}" video is ready!`);
+        autoSaveToGallery(updated);
+        unsub();
+        // Clean up DB poll timer if it's running
+        const t = pollTimers.current.get(updated.id);
+        if (t) { clearInterval(t); pollTimers.current.delete(updated.id); }
+      }
+      if (updated.status === "failed") {
+        toast.error(updated.error || "Video generation failed");
+        unsub();
+        const t = pollTimers.current.get(updated.id);
+        if (t) { clearInterval(t); pollTimers.current.delete(updated.id); }
+      }
+    });
+
+    // Auth users: ALSO poll DB for real edge-function progress
+    // (poll syncs DB → local cache → notify() → subscription fires)
     if (user) {
-      job = await createVideoJob(request, user.id);
-      // Start DB polling for backend progress
       startPolling(job.id);
-    } else {
-      // Guest: use sync simulation
-      job = createVideoJobSync(request);
-      const unsub = subscribeVideoJob(job.id, (updated) => {
-        setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
-        if (updated.status === "complete") {
-          toast.success(`"${selectedStory.title}" video is ready!`);
-          autoSaveToGallery(updated);
-          unsub();
-        }
-        if (updated.status === "failed") {
-          toast.error(updated.error || "Video generation failed");
-          unsub();
-        }
-      });
     }
 
     setJobs((prev) => [job, ...prev]);

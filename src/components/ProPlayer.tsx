@@ -129,6 +129,10 @@ export const ProPlayer = memo(function ProPlayer({
     video.addEventListener("playing", onPlaying);
 
     return () => {
+      // Stop playback immediately on unmount (prevents audio leak)
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("ended", onEnded);
@@ -233,21 +237,46 @@ export const ProPlayer = memo(function ProPlayer({
     onSave?.();
   }, [onSave, saved]);
 
+  const [downloading, setDownloading] = useState(false);
+
   const handleDownload = useCallback(() => {
-    if (!url) return;
-    try {
+    if (!url || downloading) return;
+    const filename = title ? `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.mp4` : "video.mp4";
+    const isSameOrigin = url.startsWith(window.location.origin) || url.startsWith("/");
+
+    if (isSameOrigin) {
+      // Same-origin: anchor download works reliably
       const a = document.createElement("a");
       a.href = url;
-      a.download = title ? `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.mp4` : "video.mp4";
-      a.rel = "noopener noreferrer";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    } catch {
-      // Fallback for cross-origin or iOS Safari
-      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      // Cross-origin: fetch as blob then trigger download
+      setDownloading(true);
+      fetch(url)
+        .then((res) => {
+          if (!res.ok) throw new Error("fetch failed");
+          return res.blob();
+        })
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+        })
+        .catch(() => {
+          // Final fallback: open in new tab
+          window.open(url, "_blank", "noopener,noreferrer");
+        })
+        .finally(() => setDownloading(false));
     }
-  }, [url, title]);
+  }, [url, title, downloading]);
 
   /* ── Status label ── */
   const statusLabel =
@@ -413,11 +442,18 @@ export const ProPlayer = memo(function ProPlayer({
           {/* Download */}
           <button
             onClick={handleDownload}
+            disabled={downloading}
             className="pro-player-btn"
-            aria-label="Download video"
+            aria-label={downloading ? "Downloading…" : "Download video"}
           >
-            <Download className="w-4 h-4" />
-            <span className="text-xs hidden sm:inline ml-1">Download</span>
+            {downloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span className="text-xs hidden sm:inline ml-1">
+              {downloading ? "Downloading…" : "Download"}
+            </span>
           </button>
         </div>
       </div>

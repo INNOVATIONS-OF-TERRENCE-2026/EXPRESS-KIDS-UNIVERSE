@@ -1,23 +1,3 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Images, Trash2 } from "lucide-react";
-import { AuroraGradient, PosterPreviewCard, EmptyState, CinematicButton } from "@/components/eku";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-
-interface StoryItem {
-  id: string;
-  title: string;
-  theme: string;
-  child_name: string;
-  reading_level: string;
-  created_at: string;
-  status: string;
-}
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Images, Trash2, Film, Play, Download, Clock } from "lucide-react";
