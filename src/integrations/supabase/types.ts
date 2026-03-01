@@ -115,6 +115,99 @@ export type Database = {
           },
         ]
       }
+      video_jobs: {
+        Row: {
+          id: string
+          user_id: string
+          request: Json
+          status: string
+          progress: number
+          step_label: string | null
+          output_url: string | null
+          thumbnail_url: string | null
+          error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          user_id: string
+          request?: Json
+          status?: string
+          progress?: number
+          step_label?: string | null
+          output_url?: string | null
+          thumbnail_url?: string | null
+          error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          request?: Json
+          status?: string
+          progress?: number
+          step_label?: string | null
+          output_url?: string | null
+          thumbnail_url?: string | null
+          error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gallery_items: {
+        Row: {
+          id: string
+          user_id: string
+          type: string
+          source: string
+          job_id: string | null
+          adventure_id: string | null
+          title: string
+          description: string | null
+          output_url: string | null
+          poster_url: string | null
+          duration_seconds: number | null
+          status: string
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type?: string
+          source?: string
+          job_id?: string | null
+          adventure_id?: string | null
+          title: string
+          description?: string | null
+          output_url?: string | null
+          poster_url?: string | null
+          duration_seconds?: number | null
+          status?: string
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: string
+          source?: string
+          job_id?: string | null
+          adventure_id?: string | null
+          title?: string
+          description?: string | null
+          output_url?: string | null
+          poster_url?: string | null
+          duration_seconds?: number | null
+          status?: string
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

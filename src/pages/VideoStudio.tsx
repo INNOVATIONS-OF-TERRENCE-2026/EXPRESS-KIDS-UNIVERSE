@@ -8,10 +8,12 @@
  *  - Choose duration preset (2 min, 5 min, 15 min)
  *  - Map voices to characters (uses PRESET_VOICES)
  *  - Launch generation job with progress tracking
- *  - View completed video jobs
+ *  - View completed video jobs with ProPlayer
+ *  - Auto-save completed videos to Gallery
+ *  - DB polling for real backend progress
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -39,9 +41,14 @@ import {
 } from "@/lib/studio/video/videoJobTypes";
 import {
   createVideoJob,
+  createVideoJobSync,
   getAllVideoJobs,
   subscribeVideoJob,
+  pollJobFromDB,
+  loadUserJobs,
 } from "@/lib/studio/video/videoJobStore";
+import { saveVideoToGallery } from "@/lib/galleryService";
+import { ProPlayer } from "@/components/ProPlayer";
 import { toast } from "sonner";
 
 interface StoryOption {
@@ -58,6 +65,9 @@ export default function VideoStudio() {
   const [duration, setDuration] = useState<VideoDuration>("short");
   const [jobs, setJobs] = useState<VideoJob[]>([]);
   const [creating, setCreating] = useState(false);
+  const [playingJob, setPlayingJob] = useState<VideoJob | null>(null);
+  const savedJobIds = useRef(new Set<string>());
+  const pollTimers = useRef(new Map<string, ReturnType<typeof setInterval>>());
 
   /* ── Load user stories ── */
   useEffect(() => {
@@ -73,17 +83,72 @@ export default function VideoStudio() {
     })();
   }, [user]);
 
-  /* ── Load existing jobs ── */
+  /* ── Load existing jobs (DB first, fallback to local) ── */
   useEffect(() => {
-    setJobs(getAllVideoJobs());
-  }, []);
+    if (user) {
+      loadUserJobs(user.id).then((dbJobs) => {
+        setJobs(dbJobs);
+        // Resume polling for any active jobs
+        dbJobs.forEach((j) => {
+          if (!["complete", "failed"].includes(j.status)) {
+            startPolling(j.id);
+          }
+        });
+      });
+    } else {
+      setJobs(getAllVideoJobs());
+    }
+    return () => {
+      // Cleanup all poll timers on unmount
+      pollTimers.current.forEach((t) => clearInterval(t));
+      pollTimers.current.clear();
+    };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Auto-save completed jobs to gallery ── */
+  const autoSaveToGallery = useCallback(
+    (job: VideoJob) => {
+      if (savedJobIds.current.has(job.id)) return;
+      if (job.status !== "complete" || !job.outputUrl) return;
+      savedJobIds.current.add(job.id);
+      saveVideoToGallery(job, user?.id).catch(() => {});
+    },
+    [user],
+  );
+
+  /* ── DB polling for active jobs ── */
+  const startPolling = useCallback(
+    (jobId: string) => {
+      if (pollTimers.current.has(jobId)) return;
+      const timer = setInterval(async () => {
+        const updated = await pollJobFromDB(jobId);
+        if (!updated) return;
+
+        setJobs((prev) =>
+          prev.map((j) => (j.id === updated.id ? updated : j)),
+        );
+
+        if (updated.status === "complete") {
+          toast.success(`Video is ready!`);
+          autoSaveToGallery(updated);
+          clearInterval(timer);
+          pollTimers.current.delete(jobId);
+        } else if (updated.status === "failed") {
+          toast.error(updated.error || "Video generation failed");
+          clearInterval(timer);
+          pollTimers.current.delete(jobId);
+        }
+      }, 3000);
+      pollTimers.current.set(jobId, timer);
+    },
+    [autoSaveToGallery],
+  );
 
   /* ── Create job ── */
-  const handleCreate = useCallback(() => {
+  const handleCreate = useCallback(async () => {
     if (!selectedStory || creating) return;
     setCreating(true);
 
-    // Default voice assignments: narrator voice for all
     const voiceAssignments: VideoVoiceAssignment[] = [
       {
         characterId: "narrator",
@@ -92,35 +157,62 @@ export default function VideoStudio() {
       },
     ];
 
-    const job = createVideoJob({
+    const request = {
       storyId: selectedStory.id,
       storyTitle: selectedStory.title,
       duration,
-      provider: "internal",
+      provider: "internal" as const,
       voiceAssignments,
       musicStyle: "magical",
-    });
+    };
 
-    // Subscribe to updates
-    const unsub = subscribeVideoJob(job.id, (updated) => {
-      setJobs((prev) =>
-        prev.map((j) => (j.id === updated.id ? updated : j)),
-      );
-      if (updated.status === "complete") {
-        toast.success(`"${selectedStory.title}" video is ready!`);
-        unsub();
-      }
-      if (updated.status === "failed") {
-        toast.error(updated.error || "Video generation failed");
-        unsub();
-      }
-    });
+    let job: VideoJob;
+    if (user) {
+      job = await createVideoJob(request, user.id);
+      // Start DB polling for backend progress
+      startPolling(job.id);
+    } else {
+      // Guest: use sync simulation
+      job = createVideoJobSync(request);
+      const unsub = subscribeVideoJob(job.id, (updated) => {
+        setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+        if (updated.status === "complete") {
+          toast.success(`"${selectedStory.title}" video is ready!`);
+          autoSaveToGallery(updated);
+          unsub();
+        }
+        if (updated.status === "failed") {
+          toast.error(updated.error || "Video generation failed");
+          unsub();
+        }
+      });
+    }
 
     setJobs((prev) => [job, ...prev]);
     setCreating(false);
     setSelectedStory(null);
     toast.info("Video generation started!");
-  }, [selectedStory, duration, creating]);
+  }, [selectedStory, duration, creating, user, startPolling, autoSaveToGallery]);
+
+  /* ── Watch handler ── */
+  const handleWatch = useCallback((job: VideoJob) => {
+    if (!job.outputUrl) {
+      toast.error("Video not available yet");
+      if (import.meta.env.DEV) console.warn("[VideoStudio] Missing output_url for job:", job.id);
+      return;
+    }
+    setPlayingJob(job);
+  }, []);
+
+  /* ── Save from player ── */
+  const handlePlayerSave = useCallback(() => {
+    if (!playingJob) return;
+    saveVideoToGallery(playingJob, user?.id)
+      .then((ok) => {
+        if (ok) toast.success("Saved to Gallery");
+        else toast.error("Failed to save");
+      });
+  }, [playingJob, user]);
 
   const activeJobs = jobs.filter((j) => !["complete", "failed"].includes(j.status));
   const completedJobs = jobs.filter((j) => j.status === "complete" || j.status === "failed");
@@ -308,7 +400,12 @@ export default function VideoStudio() {
                         </p>
                       </div>
                       {job.status === "complete" && (
-                        <CinematicButton variant="outline" size="sm">
+                        <CinematicButton
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleWatch(job)}
+                          disabled={!job.outputUrl}
+                        >
                           <Play className="w-4 h-4" /> Watch
                         </CinematicButton>
                       )}
@@ -320,6 +417,38 @@ export default function VideoStudio() {
           </StaggerContainer>
         </div>
       </div>
+
+      {/* ── ProPlayer Overlay ── */}
+      <AnimatePresence>
+        {playingJob && playingJob.outputUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setPlayingJob(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-4xl"
+            >
+              <ProPlayer
+                url={playingJob.outputUrl}
+                title={playingJob.request.storyTitle}
+                poster={playingJob.thumbnailUrl}
+                onClose={() => setPlayingJob(null)}
+                onSave={handlePlayerSave}
+                showSave={true}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

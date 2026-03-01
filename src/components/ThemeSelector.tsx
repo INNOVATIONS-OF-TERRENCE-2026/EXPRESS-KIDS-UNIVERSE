@@ -1,15 +1,13 @@
 import { memo, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Palette } from "lucide-react";
-import { ThemeModal } from "@/components/ThemeModal";
+import { ThemeHeadWidget } from "@/components/ThemeHeadWidget";
 
 /**
- * ThemeSelector — Trigger button that opens the full ThemeModal.
+ * ThemeSelector — Trigger button that opens the floating ThemeHeadWidget.
  *
  * Renders a small palette icon button inside GlassNav.
- * The actual theme drawer/modal is rendered via portal-free fixed
- * positioning inside ThemeModal. No dropdown, no absolute positioning,
- * no upward expansion — clean bottom-sheet on mobile, centered on desktop.
+ * Opens a lightweight transparent floating panel (not a full modal).
  */
 export const ThemeSelector = memo(function ThemeSelector() {
   const [open, setOpen] = useState(false);
@@ -30,7 +28,7 @@ export const ThemeSelector = memo(function ThemeSelector() {
         <Palette className="w-4 h-4" />
       </motion.button>
 
-      <ThemeModal open={open} onClose={handleClose} />
+      <ThemeHeadWidget open={open} onClose={handleClose} />
     </>
   );
 });

@@ -755,3 +755,184 @@
     animation-duration: 0ms !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   ProPlayer — Custom video player controls
+   GPU animated: transform + opacity only.
+   ══════════════════════════════════════════════════════════ */
+
+.pro-player {
+  position: relative;
+  container-type: inline-size;
+}
+
+.pro-player-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  will-change: opacity;
+}
+
+.pro-player:not(:hover):not(:focus-within) .pro-player-controls {
+  opacity: 0.6;
+}
+
+.pro-player-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pro-player-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
+.pro-player-btn:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.pro-player-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Range inputs */
+.pro-player-timeline,
+.pro-player-volume {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+}
+
+.pro-player-timeline::-webkit-slider-thumb,
+.pro-player-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.pro-player-timeline::-moz-range-thumb,
+.pro-player-volume::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Theme Head Widget — Floating transparent panel
+   GPU animated: transform + opacity only.
+   ══════════════════════════════════════════════════════════ */
+
+.theme-head-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9989;
+  background: transparent;
+}
+
+.theme-head-widget {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  z-index: 9990;
+  width: 340px;
+  max-height: calc(100vh - 96px);
+  background: hsl(var(--eku-bg) / 0.65);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  will-change: transform, opacity;
+  transform-origin: top right;
+  animation: theme-head-in 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.theme-head-widget.theme-head-closing {
+  animation: theme-head-out 200ms ease-in forwards;
+}
+
+@keyframes theme-head-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes theme-head-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.95) translateY(-8px); }
+}
+
+.theme-head-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile: bottom sheet */
+@media (max-width: 639px) {
+  .theme-head-widget {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 75vh;
+    border-radius: 20px 20px 0 0;
+    transform-origin: bottom center;
+    animation-name: theme-head-mobile-in;
+  }
+
+  .theme-head-widget.theme-head-closing {
+    animation-name: theme-head-mobile-out;
+  }
+
+  @keyframes theme-head-mobile-in {
+    from { opacity: 0; transform: translateY(100%); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes theme-head-mobile-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(100%); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-head-widget {
+    animation-duration: 0ms !important;
+  }
+}
