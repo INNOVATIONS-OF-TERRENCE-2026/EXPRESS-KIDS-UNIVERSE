@@ -38,6 +38,7 @@ import {
   type VideoDuration,
   type VideoJob,
   type VideoVoiceAssignment,
+  type CompositionManifest,
 } from "@/lib/studio/video/videoJobTypes";
 import {
   createVideoJob,
@@ -47,6 +48,7 @@ import {
   pollJobFromDB,
   loadUserJobs,
 } from "@/lib/studio/video/videoJobStore";
+import { renderVideoFromManifest, uploadRenderedVideo } from "@/lib/studio/video/videoRenderer";
 import { saveVideoToGallery } from "@/lib/galleryService";
 import { ProPlayer } from "@/components/ProPlayer";
 import { toast } from "sonner";
@@ -69,6 +71,8 @@ export default function VideoStudio() {
   const savedJobIds = useRef(new Set<string>());
   const pollTimers = useRef(new Map<string, ReturnType<typeof setInterval>>());
   const unsubs = useRef(new Map<string, () => void>());
+  const renderingJobs = useRef(new Set<string>());
+  const isRendering = useRef(false);
 
   /* ── Load user stories ── */
   useEffect(() => {
@@ -91,7 +95,10 @@ export default function VideoStudio() {
         setJobs(dbJobs);
         // Resume polling for any active jobs
         dbJobs.forEach((j) => {
-          if (!["complete", "failed"].includes(j.status)) {
+          if (j.status === "rendering" && j.outputUrl?.includes("manifest.json")) {
+            // Resume client-side rendering
+            startClientRender(j);
+          } else if (!["complete", "failed"].includes(j.status)) {
             startPolling(j.id);
           }
         });
@@ -109,6 +116,18 @@ export default function VideoStudio() {
     };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Warn before leaving during rendering ── */
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isRendering.current) {
+        e.preventDefault();
+        e.returnValue = "Video is rendering — leaving will cancel it.";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
   /* ── Auto-save completed jobs to gallery ── */
   const autoSaveToGallery = useCallback(
     (job: VideoJob) => {
@@ -121,9 +140,6 @@ export default function VideoStudio() {
   );
 
   /* ── DB polling for active jobs ── */
-  // Polls Supabase for edge-function progress, syncs to local cache via pollJobFromDB
-  // which calls notify() → triggers any active subscriptions.
-  // No toasts here — subscription callbacks handle user-facing feedback.
   const MAX_POLLS = 100; // ~5 minutes at 3s interval
   const startPolling = useCallback(
     (jobId: string) => {
@@ -133,7 +149,6 @@ export default function VideoStudio() {
         pollCount++;
         const updated = await pollJobFromDB(jobId);
 
-        // Stall detection: if we've polled too many times, give up
         if (pollCount >= MAX_POLLS) {
           clearInterval(timer);
           pollTimers.current.delete(jobId);
@@ -142,13 +157,20 @@ export default function VideoStudio() {
 
         if (!updated) return;
 
-        // pollJobFromDB syncs to local cache + calls notify()
-        // For recovery jobs (loaded on mount, no subscription), also update state directly.
         setJobs((prev) =>
           prev.map((j) => (j.id === updated.id ? updated : j)),
         );
 
-        if (updated.status === "complete") {
+        // Detect "rendering" + manifest URL → start client-side render
+        if (
+          updated.status === "rendering" &&
+          updated.outputUrl?.includes("manifest.json") &&
+          !renderingJobs.current.has(updated.id)
+        ) {
+          clearInterval(timer);
+          pollTimers.current.delete(jobId);
+          startClientRender(updated);
+        } else if (updated.status === "complete") {
           autoSaveToGallery(updated);
           clearInterval(timer);
           pollTimers.current.delete(jobId);
@@ -159,7 +181,120 @@ export default function VideoStudio() {
       }, 3000);
       pollTimers.current.set(jobId, timer);
     },
-    [autoSaveToGallery],
+    [autoSaveToGallery], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  /* ── Client-side video rendering ── */
+  const startClientRender = useCallback(
+    async (job: VideoJob) => {
+      if (renderingJobs.current.has(job.id)) return;
+      renderingJobs.current.add(job.id);
+      isRendering.current = true;
+
+      try {
+        // 1. Fetch composition manifest
+        const manifestUrl = job.outputUrl;
+        if (!manifestUrl) throw new Error("No manifest URL");
+
+        const res = await fetch(manifestUrl);
+        if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status}`);
+        const manifest: CompositionManifest = await res.json();
+
+        // 2. Render video locally (Canvas + MediaRecorder)
+        toast.info("Rendering video — please keep this tab open…");
+        const { blob, durationSec } = await renderVideoFromManifest(manifest, {
+          onProgress: (pct) => {
+            setJobs((prev) =>
+              prev.map((j) =>
+                j.id === job.id
+                  ? { ...j, progress: pct, stepLabel: `Rendering video… ${pct}%` }
+                  : j,
+              ),
+            );
+          },
+          onPhase: (label) => {
+            setJobs((prev) =>
+              prev.map((j) =>
+                j.id === job.id ? { ...j, stepLabel: label } : j,
+              ),
+            );
+          },
+        });
+
+        // 3. Upload rendered video to storage
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === job.id ? { ...j, progress: 98, stepLabel: "Uploading video…" } : j,
+          ),
+        );
+
+        let videoUrl = await uploadRenderedVideo(blob, job.id);
+
+        // Fallback: if storage upload fails, create blob URL for this session
+        if (!videoUrl) {
+          videoUrl = URL.createObjectURL(blob);
+          console.warn("[VideoStudio] Storage upload failed; using blob URL");
+        }
+
+        // 4. Update DB with final video URL
+        await supabase.from("video_jobs").update({
+          status: "complete",
+          progress: 100,
+          step_label: "Ready to watch!",
+          output_url: videoUrl,
+        }).eq("id", job.id);
+
+        // 5. Update local state + save to gallery
+        const completedJob: VideoJob = {
+          ...job,
+          status: "complete",
+          progress: 100,
+          stepLabel: "Ready to watch!",
+          outputUrl: videoUrl,
+          updatedAt: Date.now(),
+        };
+
+        setJobs((prev) =>
+          prev.map((j) => (j.id === job.id ? completedJob : j)),
+        );
+
+        // Auto-save to gallery
+        await supabase.from("gallery_items").upsert({
+          user_id: user?.id,
+          type: "video",
+          source: "video_studio",
+          job_id: job.id,
+          adventure_id: job.request.storyId,
+          title: job.request.storyTitle || "Untitled Video",
+          output_url: videoUrl,
+          poster_url: job.thumbnailUrl || manifest.scenes[0]?.imageUrl,
+          duration_seconds: Math.round(durationSec),
+          status: "ready",
+          metadata: { provider: job.request.provider, musicStyle: job.request.musicStyle },
+        }, { onConflict: "job_id" }).then(() => {});
+
+        toast.success(`"${job.request.storyTitle}" video is ready!`);
+      } catch (err) {
+        console.error("[VideoStudio] Client render failed:", err);
+        toast.error("Video rendering failed");
+        await supabase.from("video_jobs").update({
+          status: "failed",
+          error: err instanceof Error ? err.message : "Rendering failed",
+        }).eq("id", job.id);
+
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === job.id
+              ? { ...j, status: "failed" as const, error: "Rendering failed" }
+              : j,
+          ),
+        );
+      } finally {
+        renderingJobs.current.delete(job.id);
+        isRendering.current = renderingJobs.current.size > 0;
+      }
+    },
+    [user],
   );
 
   /* ── Create job ── */
@@ -197,12 +332,25 @@ export default function VideoStudio() {
     const storyTitle = selectedStory.title;
     const unsub = subscribeVideoJob(job.id, (updated) => {
       setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+
+      // Edge function sets status="rendering" + manifest URL → start client render
+      if (
+        updated.status === "rendering" &&
+        updated.outputUrl?.includes("manifest.json") &&
+        !renderingJobs.current.has(updated.id)
+      ) {
+        startClientRender(updated);
+        // Don't unsub yet — we still need to hear the final "complete" from client render
+      }
+
       if (updated.status === "complete") {
-        toast.success(`"${storyTitle}" video is ready!`);
+        // Only toast if we didn't just finish client rendering (it toasts itself)
+        if (!renderingJobs.current.has(updated.id)) {
+          toast.success(`"${storyTitle}" video is ready!`);
+        }
         autoSaveToGallery(updated);
         unsub();
         unsubs.current.delete(updated.id);
-        // Clean up DB poll timer if it's running
         const t = pollTimers.current.get(updated.id);
         if (t) { clearInterval(t); pollTimers.current.delete(updated.id); }
       }
@@ -227,13 +375,17 @@ export default function VideoStudio() {
     setCreating(false);
     setSelectedStory(null);
     toast.info("Video generation started!");
-  }, [selectedStory, duration, creating, user, startPolling, autoSaveToGallery]);
+  }, [selectedStory, duration, creating, user, startPolling, startClientRender, autoSaveToGallery]);
 
   /* ── Watch handler ── */
   const handleWatch = useCallback((job: VideoJob) => {
     if (!job.outputUrl) {
       toast.error("Video not available yet");
-      if (import.meta.env.DEV) console.warn("[VideoStudio] Missing output_url for job:", job.id);
+      return;
+    }
+    // Don't try to play manifest URLs — only real video files
+    if (job.outputUrl.includes("manifest.json")) {
+      toast.info("Video is still rendering…");
       return;
     }
     setPlayingJob(job);

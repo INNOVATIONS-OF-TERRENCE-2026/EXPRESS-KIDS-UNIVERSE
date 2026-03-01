@@ -43,6 +43,8 @@ export interface VoiceProfile {
   language: string;
   /** Provider-specific voice ID or name (e.g., Web Speech API voice name) */
   providerVoiceId?: string;
+  /** ElevenLabs default-catalog voice ID (used for video narration) */
+  elevenlabsVoiceId?: string;
 }
 
 /** Maps character IDs to voice profile IDs */
@@ -80,8 +82,9 @@ export const PRESET_VOICES: VoiceProfile[] = [
     pitch: 0,
     rate: 0.9,
     volume: 0.9,
-    provider: "web-speech",
+    provider: "elevenlabs",
     language: "en-US",
+    elevenlabsVoiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel — warm narrator
   },
   {
     id: "voice_hero",
@@ -90,8 +93,9 @@ export const PRESET_VOICES: VoiceProfile[] = [
     pitch: 0.2,
     rate: 1.0,
     volume: 0.85,
-    provider: "web-speech",
+    provider: "elevenlabs",
     language: "en-US",
+    elevenlabsVoiceId: "pNInz6obpgDQGcFmaJgB", // Adam — confident male
   },
   {
     id: "voice_sidekick",
@@ -100,8 +104,9 @@ export const PRESET_VOICES: VoiceProfile[] = [
     pitch: 0.4,
     rate: 1.1,
     volume: 0.8,
-    provider: "web-speech",
+    provider: "elevenlabs",
     language: "en-US",
+    elevenlabsVoiceId: "jBpfuIE2acCO8z3wKNLl", // Gigi — animated playful
   },
   {
     id: "voice_mentor",
@@ -110,8 +115,9 @@ export const PRESET_VOICES: VoiceProfile[] = [
     pitch: -0.2,
     rate: 0.85,
     volume: 0.85,
-    provider: "web-speech",
+    provider: "elevenlabs",
     language: "en-US",
+    elevenlabsVoiceId: "onwK4e9ZLuTAKqWV03F9", // Daniel — calm British
   },
   {
     id: "voice_villain",
@@ -120,8 +126,9 @@ export const PRESET_VOICES: VoiceProfile[] = [
     pitch: -0.3,
     rate: 0.95,
     volume: 0.8,
-    provider: "web-speech",
+    provider: "elevenlabs",
     language: "en-US",
+    elevenlabsVoiceId: "IKne3meq5aSn9XLyUdCD", // Charlie — energetic
   },
   {
     id: "voice_comic",
@@ -130,7 +137,14 @@ export const PRESET_VOICES: VoiceProfile[] = [
     pitch: 0.5,
     rate: 1.15,
     volume: 0.8,
-    provider: "web-speech",
+    provider: "elevenlabs",
     language: "en-US",
+    elevenlabsVoiceId: "pFZP5JQG7iQjIQuC4Bku", // Lily — animated female
   },
 ];
+
+/** Map a voice profile ID to its ElevenLabs voice ID (fallback to Rachel) */
+export function getElevenLabsVoiceId(voiceProfileId: string): string {
+  const profile = PRESET_VOICES.find((v) => v.id === voiceProfileId);
+  return profile?.elevenlabsVoiceId || "21m00Tcm4TlvDq8ikWAM";
+}
