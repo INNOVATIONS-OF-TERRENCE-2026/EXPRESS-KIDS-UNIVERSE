@@ -15,6 +15,7 @@
 
 import type { PacingMode } from "./timelineOrchestrator";
 import type { NarrationTimingResult, SceneEmotion } from "./narrationTiming";
+import { enhanceWithLighting } from "@/lib/lightingDirector";
 
 /* ── Types ── */
 
@@ -315,12 +316,15 @@ export function enhanceRunwayPrompt(
   };
   const colorHint = colorHints[emotion] ?? "";
 
-  return [
+  const combined = [
     base,
     cameraDesc,
     atmosKeywords,
     colorHint,
   ].filter(Boolean).join(", ");
+
+  // Apply Pixar lighting enhancement
+  return enhanceWithLighting(combined, emotion, { isKidsMode: true });
 }
 
 /* ── Helpers ── */

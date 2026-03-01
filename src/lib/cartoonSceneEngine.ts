@@ -18,6 +18,8 @@ import type { PacingMode } from "@/lib/studio/video/videoJobTypes";
 import type { SceneEmotion } from "@/lib/studio/narrationTiming";
 import type { SfxCue } from "@/lib/studio/sfxSyncEngine";
 import type { DuckingPoint } from "@/lib/studio/audioDuckingEngine";
+import { enhanceWithLighting } from "@/lib/lightingDirector";
+import { enhancePromptWithDNA, type CharacterDNA } from "@/lib/characterDNAEngine";
 
 /* ── Types ── */
 
@@ -88,6 +90,10 @@ export interface CartoonSceneManifest {
   emotion: SceneEmotion;
   /** Enhanced Runway prompt */
   enhancedPrompt: string;
+  /** Pixar lighting directive applied to this scene */
+  lightingDirective: string;
+  /** Character DNA identity fragments (for consistency validation) */
+  characterDNAFragments: string[];
   /** Quality profile */
   quality: QualityProfile;
 }
@@ -121,6 +127,8 @@ export interface CartoonSceneInput {
   transitionOut: { type: string; durationSec: number };
   sceneDuration: number;
   characterIds: string[];
+  /** Optional character DNA profiles for identity consistency */
+  characterDNAs?: CharacterDNA[];
 }
 
 /* ── Quality Profiles ── */
@@ -166,6 +174,21 @@ export function composeCartoonScene(
   pacingMode: PacingMode = "kids",
 ): CartoonSceneManifest {
   const quality = getQualityProfile(pacingMode);
+
+  // ── Pixar Lighting Enhancement ──
+  const lightingDirective = enhanceWithLighting(
+    input.enhancedPrompt,
+    input.emotion as string,
+    { isKidsMode: pacingMode === "kids", act: input.act },
+  );
+
+  // ── Character DNA Enhancement ──
+  let finalPrompt = lightingDirective;
+  const dnaFragments: string[] = [];
+  if (input.characterDNAs && input.characterDNAs.length > 0) {
+    finalPrompt = enhancePromptWithDNA(lightingDirective, input.characterDNAs);
+    dnaFragments.push(...input.characterDNAs.map(d => d.characterId));
+  }
 
   // Build character animation layers
   const characters: CharacterAnimation[] = input.characterIds.map((charId) => ({
@@ -254,7 +277,9 @@ export function composeCartoonScene(
     transitionIn: input.transitionIn,
     transitionOut: input.transitionOut,
     emotion: input.emotion,
-    enhancedPrompt: input.enhancedPrompt,
+    enhancedPrompt: finalPrompt,
+    lightingDirective,
+    characterDNAFragments: dnaFragments,
     quality,
   };
 }

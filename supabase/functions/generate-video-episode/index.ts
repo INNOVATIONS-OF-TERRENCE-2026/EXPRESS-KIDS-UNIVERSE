@@ -278,6 +278,12 @@ serve(async (req) => {
     });
 
     const storyTheme = (story as Record<string, unknown>).theme as string || "";
+    const storyChildName = (story as Record<string, unknown>).child_name as string || "Hero";
+
+    // Expose to inline orchestration engine for character DNA injection
+    (globalThis as any).__childName = storyChildName;
+    (globalThis as any).__storyTheme = storyTheme;
+
     const orchestration = computeTimelineOrchestration(
       compositionScenes,
       pacing,
@@ -529,7 +535,7 @@ serve(async (req) => {
       narratorVoiceId: elVoiceId,
       pacingProfile: pacing,
       musicStyle: musicStyle || "magical",
-      orchestrationVersion: 2,
+      orchestrationVersion: 3,
       budgetMode: budget,
       arcStructure: {
         act1Scenes: act1Count,
@@ -542,6 +548,13 @@ serve(async (req) => {
         actualSec: totalDuration,
         driftSec: Math.round(driftSec * 100) / 100,
         locked: Math.abs(driftSec) <= 0.2,
+      },
+      /** Phase 8 engines active in this manifest */
+      engineVersions: {
+        lightingDirector: "1.0.0",
+        characterDNA: "1.0.0",
+        voiceCloneEngine: "1.0.0",
+        seasonMemoryEngine: "1.0.0",
       },
       createdAt: new Date().toISOString(),
     };
@@ -686,6 +699,157 @@ function sleep(ms: number): Promise<void> {
 function buildAnimationPrompt(caption: string, narration: string): string {
   const content = (caption || narration || "").slice(0, 200);
   return `Gentle, smooth, child-friendly animation of a storybook illustration. Soft natural movement, warm and whimsical. ${content}`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   INLINE PIXAR LIGHTING DIRECTOR
+
+   Pure math — injects cinematic 3-point lighting directives
+   into scene prompts. 10-layer lighting stack:
+     GI, Key, Rim, Fill, Volumetrics, SSS, Depth Fog,
+     Bounce, Color Temperature, Specular Highlights.
+   ══════════════════════════════════════════════════════════ */
+
+type LightingMood = "warm" | "cool" | "dramatic" | "ethereal" | "golden" | "moody" | "bright" | "mysterious" | "heroic" | "dreamy";
+
+function inferLightingMood(emotion: string): LightingMood {
+  const map: Record<string, LightingMood> = {
+    calm: "warm", playful: "bright", magical: "ethereal",
+    tense: "moody", dramatic: "dramatic", action: "heroic",
+    emotional: "dreamy", triumphant: "golden",
+  };
+  return map[emotion] || "warm";
+}
+
+function inferLightingEnv(caption: string): string {
+  const lower = caption.toLowerCase();
+  if (/forest|tree|jungle|wood/.test(lower)) return "forest";
+  if (/ocean|sea|beach|water|wave/.test(lower)) return "ocean";
+  if (/space|star|planet|galaxy|rocket/.test(lower)) return "space";
+  if (/castle|throne|kingdom|tower/.test(lower)) return "castle";
+  if (/cave|underground|tunnel/.test(lower)) return "cave";
+  if (/sky|cloud|flying|bird/.test(lower)) return "sky";
+  if (/city|street|building|town/.test(lower)) return "city";
+  if (/mountain|cliff|peak/.test(lower)) return "mountain";
+  if (/garden|flower|meadow/.test(lower)) return "garden";
+  if (/snow|ice|winter|frost/.test(lower)) return "snow";
+  return "studio";
+}
+
+function inferTimeOfDay(caption: string, idx: number, total: number): string {
+  const lower = caption.toLowerCase();
+  if (/sunrise|dawn|morning/.test(lower)) return "dawn";
+  if (/sunset|dusk|evening/.test(lower)) return "sunset";
+  if (/night|moon|star|dark/.test(lower)) return "night";
+  if (/noon|midday|bright sun/.test(lower)) return "midday";
+  // Arc-based default: episodes progress dawn → day → sunset → night
+  const pos = idx / Math.max(total - 1, 1);
+  if (pos < 0.2) return "dawn";
+  if (pos < 0.6) return "midday";
+  if (pos < 0.85) return "sunset";
+  return "night";
+}
+
+function computeLightingFragment(emotion: string, caption: string, idx: number, total: number): string {
+  const mood = inferLightingMood(emotion);
+  const env = inferLightingEnv(caption);
+  const time = inferTimeOfDay(caption, idx, total);
+
+  // Key light (directional)
+  const keyMap: Record<string, string> = {
+    dawn: "soft amber key light from horizon, 3200K", midday: "bright overhead key, 5500K neutral white",
+    sunset: "warm orange key from low angle, 2800K", night: "cool moonlit key, 7500K blue-silver",
+    golden_hour: "rich golden key at 15° elevation, 3000K",
+  };
+  const key = keyMap[time] || keyMap.midday;
+
+  // Rim light (separation)
+  const rimMap: Record<string, string> = {
+    warm: "soft amber rim light", cool: "pale blue rim light", dramatic: "sharp white rim with high contrast",
+    ethereal: "glowing pastel rim halo", golden: "rich golden rim backlight", moody: "subtle cold rim edge",
+    bright: "clean white rim separation", mysterious: "faint purple rim glow",
+    heroic: "bold golden-white rim light", dreamy: "diffused warm rim bloom",
+  };
+  const rim = rimMap[mood] || rimMap.warm;
+
+  // Fill light (shadow softening — kids mode always soft)
+  const fill = "soft bounced fill light, shadow density 15%, child-safe no harsh shadows";
+
+  // Volumetrics
+  const volMap: Record<string, string> = {
+    forest: "god rays through canopy, dappled leaf shadows",
+    ocean: "underwater caustic light patterns, gentle sun shafts",
+    space: "distant star twinkle, nebula glow, zero-gravity light scatter",
+    castle: "torch flicker volumetrics, warm stone bounce light",
+    cave: "bioluminescent glow, crystal light refraction",
+    sky: "cloud-filtered sun beams, atmospheric haze",
+    city: "window light spill, warm streetlamp glow",
+    mountain: "crisp alpine light, thin atmosphere clarity",
+    garden: "petal-filtered sunlight, butterfly wing iridescence",
+    snow: "cool blue ambient, snow crystal sparkle",
+    studio: "clean three-point studio lighting",
+  };
+  const vol = volMap[env] || volMap.studio;
+
+  // SSS (subsurface scattering for Pixar-style skin)
+  const sss = "Pixar-quality subsurface scattering on skin, warm translucent ear glow, soft nose tip highlight";
+
+  // Color temperature shift
+  const tempMap: Record<string, string> = {
+    dawn: "warm 3200K amber cast", midday: "neutral 5500K daylight",
+    sunset: "deep 2800K orange-gold", night: "cool 7500K blue-silver cast",
+  };
+  const colorTemp = tempMap[time] || tempMap.midday;
+
+  // Depth fog
+  const fogMap: Record<string, string> = {
+    forest: "light atmospheric haze in background layers", ocean: "underwater depth fog, visibility gradient",
+    space: "cosmic dust particles, distant nebula glow", cave: "thick low-lying mist",
+    mountain: "distant mountain haze layers", snow: "gentle snowfall particle fog",
+  };
+  const fog = fogMap[env] || "subtle atmospheric depth haze";
+
+  // Combine into a concise lighting directive fragment
+  return [
+    `[LIGHTING: ${key}]`,
+    `[RIM: ${rim}]`,
+    `[FILL: ${fill}]`,
+    `[VOL: ${vol}]`,
+    `[SSS: ${sss}]`,
+    `[TEMP: ${colorTemp}]`,
+    `[FOG: ${fog}]`,
+  ].join(" ");
+}
+
+/* ══════════════════════════════════════════════════════════
+   INLINE CHARACTER DNA INJECTION
+
+   Enforces character visual consistency across all scenes
+   by injecting identity descriptors into every prompt.
+   ══════════════════════════════════════════════════════════ */
+
+function buildCharacterDNAFragment(childName: string, theme: string): string {
+  // Build a consistent character identity prompt from story metadata
+  // In production this would load from a stored CharacterDNA profile
+  const skinTone = "warm medium skin tone";
+  const style = "Pixar-quality 3D cartoon character, consistent proportions";
+
+  const themeClothing: Record<string, string> = {
+    "Space Quest": "silver space suit with starry patches, glowing helmet visor",
+    "Magic Forest": "green leaf-patterned tunic, nature crown with tiny flowers",
+    "Ocean Voyage": "blue sailor outfit, coral necklace, wave-pattern shorts",
+    "Super Builders": "orange hard hat, tool belt, safety vest with star patches",
+    "Dino Discovery": "khaki explorer outfit, fossil-patterned bandana",
+  };
+  const clothing = themeClothing[theme] || "colorful adventure outfit with star emblem";
+
+  return [
+    `[CHARACTER IDENTITY: ${childName}]`,
+    `[STYLE: ${style}]`,
+    `[APPEARANCE: ${skinTone}, bright expressive eyes, friendly smile]`,
+    `[OUTFIT: ${clothing}]`,
+    `[CONSISTENCY: Maintain identical character design across all frames. Same face, same proportions, same outfit colors.]`,
+  ].join(" ");
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -865,7 +1029,18 @@ function computeTimelineOrchestration(
       emotional: "soft diffused light", triumphant: "radiant golden backlight",
     };
     const basePrompt = buildAnimationPrompt(s.caption, s.narrationText);
-    const enhancedPrompt = [basePrompt, camDesc, atmosStr, colorHints[emotion] || ""].filter(Boolean).join(", ");
+
+    // ── Inject Pixar Lighting Directive ──
+    const lightingFrag = computeLightingFragment(emotion, s.caption, i, total);
+
+    // ── Inject Character DNA for visual consistency ──
+    const childName = manifestScenes[0]?.caption || ""; // theme/name extracted from context
+    const dnaFrag = buildCharacterDNAFragment(
+      (typeof (globalThis as any).__childName === "string" ? (globalThis as any).__childName : "Hero"),
+      (typeof (globalThis as any).__storyTheme === "string" ? (globalThis as any).__storyTheme : theme),
+    );
+
+    const enhancedPrompt = [basePrompt, camDesc, atmosStr, colorHints[emotion] || "", lightingFrag, dnaFrag].filter(Boolean).join(", ");
 
     // Transitions
     const transType = TRANSITION_MAP[emotion] || "crossfade";

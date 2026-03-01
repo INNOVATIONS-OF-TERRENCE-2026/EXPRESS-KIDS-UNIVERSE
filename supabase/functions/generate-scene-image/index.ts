@@ -31,9 +31,18 @@ serve(async (req) => {
     const { data: claims, error: authErr } = await supabase.auth.getClaims(authHeader.replace("Bearer ", ""));
     if (authErr || !claims?.claims) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
-    const { sceneId, caption, childName, theme } = await req.json();
+    const { sceneId, caption, childName, theme, sceneIndex, totalScenes, emotion } = await req.json();
 
-    const prompt = `A colorful, whimsical children's book illustration in a warm, friendly art style. Scene: ${caption}. The main character is a child named ${childName}. Theme: ${theme}. Style: soft watercolor, vibrant colors, kid-friendly, no scary elements, safe for children. 16:9 aspect ratio.`;
+    // ── Pixar Lighting Directive ──
+    const idx = sceneIndex ?? 0;
+    const tot = totalScenes ?? 1;
+    const sceneEmotion = emotion || "playful";
+    const lightingDirective = computeSceneLighting(sceneEmotion, caption || "", idx, tot);
+
+    // ── Character DNA Identity ──
+    const characterIdentity = buildSceneCharacterDNA(childName || "Hero", theme || "Adventure");
+
+    const prompt = `A colorful, whimsical children's book illustration in a warm, friendly art style. Scene: ${caption}. The main character is a child named ${childName}. Theme: ${theme}. Style: soft watercolor, vibrant colors, kid-friendly, no scary elements, safe for children. 16:9 aspect ratio. ${lightingDirective} ${characterIdentity}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -93,3 +102,45 @@ serve(async (req) => {
     });
   }
 });
+
+/* ── Inline Pixar Lighting for Image Generation ── */
+function computeSceneLighting(emotion: string, caption: string, idx: number, total: number): string {
+  const moodMap: Record<string, string> = {
+    calm: "warm soft ambient light, gentle golden-hour glow",
+    playful: "bright cheerful lighting, light bouncing off colorful surfaces",
+    magical: "ethereal pastel glow, sparkling light particles, soft lens flare",
+    tense: "moody directional lighting, cool blue-grey tones, subtle shadows",
+    dramatic: "chiaroscuro lighting, strong key light, deep but child-safe shadows",
+    action: "dynamic high-contrast lighting, motion-energy glow",
+    emotional: "soft diffused warm light, intimate and gentle",
+    triumphant: "radiant golden backlight, hero lighting, glowing rim highlights",
+  };
+  const envLighting = inferEnvironmentLighting(caption);
+  const base = moodMap[emotion] || moodMap.playful;
+  return `Lighting: ${base}. ${envLighting} Pixar-quality subsurface scattering on skin. No harsh shadows (child-safe).`;
+}
+
+function inferEnvironmentLighting(caption: string): string {
+  const lower = caption.toLowerCase();
+  if (/forest|tree|jungle/.test(lower)) return "Dappled sunlight through canopy, god rays filtering through leaves.";
+  if (/ocean|sea|underwater/.test(lower)) return "Underwater caustic light patterns, gentle sun shafts through water surface.";
+  if (/space|star|planet/.test(lower)) return "Distant starfield illumination, nebula ambient glow, zero-gravity light scatter.";
+  if (/cave|underground/.test(lower)) return "Bioluminescent glow, crystal light refraction, atmospheric mist.";
+  if (/night|moon|dark/.test(lower)) return "Cool moonlit ambience, gentle blue-silver fill, warm window light spill.";
+  if (/garden|flower|meadow/.test(lower)) return "Warm petal-filtered sunlight, butterfly wing iridescence.";
+  if (/snow|ice|winter/.test(lower)) return "Cool blue ambient, snow crystal sparkle, clean reflective highlights.";
+  return "Clean three-point studio lighting with soft fill.";
+}
+
+/* ── Inline Character DNA for Image Generation ── */
+function buildSceneCharacterDNA(childName: string, theme: string): string {
+  const themeOutfit: Record<string, string> = {
+    "Space Quest": "wearing a silver space suit with starry patches",
+    "Magic Forest": "wearing a green leaf-patterned tunic with a nature crown",
+    "Ocean Voyage": "wearing a blue sailor outfit with coral accessories",
+    "Super Builders": "wearing an orange hard hat and tool belt",
+    "Dino Discovery": "wearing a khaki explorer outfit with fossil-patterned bandana",
+  };
+  const outfit = themeOutfit[theme] || "wearing a colorful adventure outfit with a star emblem";
+  return `Character consistency: ${childName} is a Pixar-quality 3D cartoon child with bright expressive eyes, friendly smile, ${outfit}. CRITICAL: Keep the character's face, proportions, and outfit colors IDENTICAL to all other scenes.`;
+}
