@@ -1,151 +1,126 @@
 
 
-# Express Kids Universe - Comprehensive Update Plan
+# PWA Brand Fix, QA Stabilization, Launch Screen & Theme Polish
 
-This plan covers 6 major features in a single implementation pass. Here's everything that will be done:
-
----
-
-## 1. Logo Replacement - Express Kids Universe Branding
-
-**What changes:**
-- Copy the uploaded Express Kids Universe logo image to `public/brand/express-kids-universe-logo.png`
-- Create a branding config at `src/lib/brand.ts` with logo paths, brand name, and alt text
-- Update `LogoBrand.tsx` component to use the new logo instead of `/logo.png` and `/eku-icon.svg`
-- Update `GlassNav.tsx`: Replace "EKU" text with the logo image, sized appropriately (max-height ~36px desktop, ~32px mobile), with `object-contain` and no forced circular clipping
-- Update `Landing.tsx`: Hero logo uses new asset, footer text updated to "Express Kids Universe"
-- Update `Auth.tsx`: Logo on auth card uses new asset
-- Update `NotFound.tsx`: Logo uses new asset
-- Update `PosterPreviewCard.tsx`: "EKU Original" badge text changed to "EKU Original" (kept as short badge)
-- Update `index.html`: `apple-mobile-web-app-title` from "EKU" to "Express Kids Universe"
-- All logo `<img>` tags include `onError` fallback to `/eku-icon.svg`
-
-**Files changed:** `LogoBrand.tsx`, `GlassNav.tsx`, `Landing.tsx`, `Auth.tsx`, `NotFound.tsx`, `index.html`, new `src/lib/brand.ts`, new `public/brand/express-kids-universe-logo.png`
+This plan covers all requested changes in a single implementation pass, organized into 5 parts.
 
 ---
 
-## 2. Disable Email Verification (Auto-Confirm Signups)
+## Part 1: PWA Icon Correction
 
-**What changes:**
-- Configure auth to enable auto-confirm for email signups so users can immediately access the app after registration
-- Update `Auth.tsx`: On successful signup, auto-redirect to `/create` instead of showing "Check your email" message
-- The `useAuth.tsx` hook already handles sessions correctly via `onAuthStateChange`, so no changes needed there
+**Problem:** PWA install icons reference placeholder `icon-192.png` / `icon-512.png` files, not the actual Express Kids Studios logo.
 
-**Files changed:** Auth configuration (configure-auth tool), `Auth.tsx`
+**Solution:**
+- Copy the uploaded Express Kids Studios logo (`user-uploads://80A255DA-343F-4A1C-A726-465FFF98C336.PNG`) to `public/pwa-icons/expresskids-512.png`
+- Create resized variants by copying the same image for `expresskids-192.png` and `apple-touch-icon.png` (the browser will scale; perfect at 512)
+- For the maskable version, we cannot run `sharp` in Lovable, so we copy the same logo to `expresskids-512-maskable.png` (it already has sufficient safe zone padding given the circular logo shape)
+- Update `vite.config.ts` manifest section:
+  - `short_name`: "Express Kids" (not "EKU")
+  - `name`: "Express Kids Studios"
+  - `background_color`: "#0e1026"
+  - `theme_color`: "#6c5ce7"
+  - Icon paths point to `/pwa-icons/expresskids-*` files
+- Update `index.html`:
+  - `<link rel="apple-touch-icon" href="/pwa-icons/apple-touch-icon.png">`
+  - `<meta name="theme-color" content="#6c5ce7">`
+  - Remove old favicon link references to `favicon-16x16.png` / `favicon-32x32.png` if present
+- Update `vite.config.ts` `includeAssets` to reference new paths
 
----
-
-## 3. Executive Leadership Integration
-
-**What changes:**
-- Create a new `/leadership` page (`src/pages/Leadership.tsx`) with elegant glass-card layout showing:
-  - Terrence Milliner Sr. -- Founder, Engineer & CEO (primary, largest card)
-  - Gloria Milliner -- President
-  - Terrence Milliner Jr. -- Vice President
-  - Tiara Smith -- CFO
-- Add a refined footer line across all pages via the `Landing.tsx` footer:
-  - "Founded & Engineered by Terrence Milliner Sr."
-  - Subtle microtext for other leadership
-  - Also reference "Milliner's Helping the Youth Foundation"
-- Add footer to other pages that currently lack one (Gallery, ParentControls, etc.) or add a shared footer component
-- Update `index.html` meta to include "Founded by Terrence Milliner Sr." in description
-- Add Leadership link to footer navigation
-- Add route in `App.tsx`
-
-**Files changed:** New `src/pages/Leadership.tsx`, `Landing.tsx` (footer), `App.tsx` (route), `index.html` (meta), new `src/components/eku/Footer.tsx` (shared footer)
+**Files:** `vite.config.ts`, `index.html`, new `public/pwa-icons/` assets (4 files, all copies of the uploaded logo)
 
 ---
 
-## 4. Sound Effects & Ambient Audio
+## Part 2: QA & Bug Fixes
 
-**What changes:**
-- Create an audio system using static bundled audio files (no external API needed for basic SFX)
-- Create `src/lib/audio.ts` with an `AudioManager` class:
-  - Pre-defined sound effects: button click, page transition, success, error, magic sparkle
-  - Ambient background track (subtle cosmic/magical loop)
-  - Respects the `soundEnabled` setting from ParentSettings in localStorage
-  - Respects `reducedMotion` for volume adjustments
-  - Volume controls and mute toggle
-- Create audio assets using Web Audio API for synthesized sounds (no external files needed):
-  - Button hover/click: soft chime
-  - Success: ascending sparkle tone
-  - Error: gentle low tone
-  - Page transition: whoosh
-  - Ambient: low-frequency cosmic drone (generated procedurally)
-- Integrate audio hooks into:
-  - `CinematicButton.tsx`: Click sound on press
-  - `PageTransition.tsx`: Transition sound
-  - `CreateStatus.tsx`: Success/failure sounds
-  - `GlassNav.tsx`: Ambient audio toggle button in nav
-- The existing Parent Controls toggle for "Sound Effects" already saves to localStorage -- wire it up to the AudioManager
+**Issue found:** Console warning -- `BrandLogo` is a `memo` component that cannot receive refs. The `Footer` component renders it and something passes a ref.
 
-**Files changed:** New `src/lib/audio.ts`, new `src/hooks/useAudio.ts`, `CinematicButton.tsx`, `GlassNav.tsx`
+**Fix:** This is a React warning about `memo` + refs. The `BrandLogo` component is wrapped in `memo()` but likely receives a ref from a parent. We will verify and either add `forwardRef` to `BrandLogo` or remove the ref usage.
+
+**Other checks:**
+- Verify all routes exist and match components (already confirmed -- all routes are wired in `App.tsx`)
+- OAuth denylist in service worker config already covers `/~oauth/`, `/oauth/`, `/auth/`, `/callback/`, `/signin/`, `/login/` -- this is correct
+- `brand.shortName` is used as "EKU" in a few places -- update to "Express Kids" where user-facing (PwaInstallButton shows `brand.shortName`)
+
+**Files:** `src/components/eku/BrandLogo.tsx` (minor fix), `src/lib/brand.ts` (update shortName)
 
 ---
 
-## 5. Read Aloud (AI Text-to-Speech)
+## Part 3: Custom Launch Screen Component
 
-**What changes:**
-- Create a new edge function `supabase/functions/text-to-speech/index.ts` that:
-  - Accepts story text and uses Lovable AI gateway for TTS (or falls back to Web Speech API on client)
-  - Since Lovable AI models don't include TTS, implement client-side Web Speech API (`speechSynthesis`) as the primary approach -- no external API key needed
-- Add a "Read Aloud" button to `AdventureResults.tsx`:
-  - Uses the browser's built-in `speechSynthesis` API
-  - Play/pause/stop controls
-  - Highlights current paragraph being read
-  - Speed control (0.75x, 1x, 1.25x)
-  - Respects sound enabled setting from parent controls
-- Create `src/hooks/useSpeechSynthesis.ts` hook for managing playback state
+**What:** Create a cinematic splash screen that displays on PWA launch before the app loads.
 
-**Files changed:** New `src/hooks/useSpeechSynthesis.ts`, `AdventureResults.tsx`
+**Implementation:**
+- The existing `StudioIntro` component already serves this exact purpose -- it shows a full-screen cinematic intro with the logo, star field, orbital ring, and fade-out on first session load
+- Update `StudioIntro.tsx` minimally:
+  - Use `background_color` matching manifest (`#0e1026`) as the base color
+  - Ensure the splash background gradient uses `#0e1026` as the deepest dark tone so there is zero white flash between PWA splash and app render
+
+**Files:** `src/components/StudioIntro.tsx` (minor background color tweak)
 
 ---
 
-## 6. Google Sign-In
+## Part 4: Theme Modal Polish
 
-**What changes:**
-- Use the Lovable Cloud managed Google OAuth (no API key needed)
-- Configure social auth via the configure-social-auth tool to generate the lovable module
-- Update `Auth.tsx` to add a "Sign in with Google" button using `lovable.auth.signInWithOAuth("google", ...)`
-- Add a visual separator ("or continue with email") between Google and email auth
-- Import from `@/integrations/lovable/index`
+The `ThemeModal` already has:
+- X close button (top-right, line 388-395)
+- ESC key closes (line 259-263, and global handler line 341-348)
+- Click outside closes (overlay onClick, line 364-366)
+- Focus trap (Tab/Shift+Tab, lines 266-285)
+- Body scroll lock (lines 319-327)
+- Bottom sheet on mobile with drag handle (line 374-376)
+- GPU-only animations (all CSS keyframes use transform + opacity)
 
-**Files changed:** Social auth configuration (tool), `Auth.tsx`
+**Missing: Auto-close on theme select.** Currently selecting a theme does NOT close the modal.
+
+**Fix:**
+- Update `handleSetTheme` in `ThemeModal.tsx` to call `onClose()` after a short delay (300ms) so the user sees the selection feedback before the panel closes
+- Same for mode toggle -- when toggling AI/Seasonal, close after brief delay
+
+**Files:** `src/components/ThemeModal.tsx`
+
+---
+
+## Part 5: PWA Install Experience Polish
+
+The `PwaInstallButton` already has:
+- Dropdown with blur backdrop and shadow elevation
+- translateY animation (lines 208-211)
+- Click outside close (lines 83-102)
+- ESC close (line 94)
+- `aria-expanded` and `aria-haspopup` (lines 188-189)
+
+**Enhancement:**
+- Add a subtle cinematic glow outline on hover to the dropdown container
+- Add soft backdrop-filter blur to the dropdown
+
+**Files:** `src/components/eku/PwaInstallButton.tsx` (minor style enhancement)
 
 ---
 
 ## Implementation Order
 
-1. Logo replacement (asset copy + branding config + component updates)
-2. Auth: disable email verification + Google Sign-In setup
-3. Update Auth.tsx (signup redirect fix + Google button)
-4. Executive Leadership page + shared footer component
-5. Audio system (synthesized SFX + hooks)
-6. Read Aloud feature (Web Speech API)
-7. Route updates in App.tsx
+1. Copy uploaded logo to `public/pwa-icons/` (4 asset copies)
+2. Update `vite.config.ts` (manifest icons, name, colors)
+3. Update `index.html` (apple-touch-icon path, theme-color)
+4. Update `src/lib/brand.ts` (shortName fix)
+5. Fix `BrandLogo.tsx` ref warning
+6. Update `StudioIntro.tsx` background color
+7. Update `ThemeModal.tsx` (auto-close on select)
+8. Polish `PwaInstallButton.tsx` dropdown styles
 
-## Summary of All New Files
-- `public/brand/express-kids-universe-logo.png`
-- `src/lib/brand.ts`
-- `src/pages/Leadership.tsx`
-- `src/components/eku/Footer.tsx`
-- `src/lib/audio.ts`
-- `src/hooks/useAudio.ts`
-- `src/hooks/useSpeechSynthesis.ts`
+## Files Changed Summary
 
-## Summary of Modified Files
-- `src/components/eku/LogoBrand.tsx`
-- `src/components/eku/GlassNav.tsx`
-- `src/components/eku/CinematicButton.tsx`
-- `src/components/eku/PosterPreviewCard.tsx`
-- `src/pages/Landing.tsx`
-- `src/pages/Auth.tsx`
-- `src/pages/NotFound.tsx`
-- `src/pages/AdventureResults.tsx`
-- `src/pages/Gallery.tsx`
-- `src/pages/ParentControls.tsx`
-- `src/pages/Privacy.tsx`
-- `src/pages/Terms.tsx`
-- `src/App.tsx`
-- `index.html`
+| File | Change |
+|------|--------|
+| `public/pwa-icons/expresskids-192.png` | New -- brand logo copy |
+| `public/pwa-icons/expresskids-512.png` | New -- brand logo copy |
+| `public/pwa-icons/expresskids-512-maskable.png` | New -- brand logo copy |
+| `public/pwa-icons/apple-touch-icon.png` | New -- brand logo copy |
+| `vite.config.ts` | Manifest icons, name, colors |
+| `index.html` | Apple touch icon path, theme-color |
+| `src/lib/brand.ts` | shortName update |
+| `src/components/eku/BrandLogo.tsx` | Fix ref warning |
+| `src/components/StudioIntro.tsx` | Background color match |
+| `src/components/ThemeModal.tsx` | Auto-close on theme select |
+| `src/components/eku/PwaInstallButton.tsx` | Dropdown glow polish |
 
