@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { Images, Trash2, Film, Play, Download, Clock, Eye, EyeOff } from "lucide-react";
+import { Images, Trash2, Film, Play, Download, Clock, Eye, EyeOff, ShoppingBag, Smartphone, GitBranch, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuroraGradient, PosterPreviewCard, EmptyState, CinematicButton } from "@/components/eku";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { getGalleryVideos, deleteGalleryItem, type GalleryVideoItem } from "@/lib/galleryService";
 import { ProPlayer } from "@/components/ProPlayer";
 import { PreviewAutoplayController } from "@/lib/previewAutoplayEngine";
+import { hasSubscriptionFeature, isBillingEnabled } from "@/lib/subscriptionEngine";
+import type { SubscriptionFeature } from "@/lib/subscriptionEngine";
 
 interface StoryItem {
   id: string;
@@ -284,6 +286,79 @@ export default function Gallery() {
                         <p className="text-xs text-muted-foreground mt-1">
                           {new Date(vid.created_at).toLocaleDateString()}
                         </p>
+                      </div>
+
+                      {/* Feature actions (bottom overlay) */}
+                      <div className="absolute bottom-14 left-0 right-0 flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity px-2">
+                        {/* Shop This Episode */}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 text-[11px] rounded-full bg-black/50 hover:bg-black/70 text-white border-0 gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!hasSubscriptionFeature("toy_generator")) {
+                              toast.info("Toy Generator requires Studio Pro plan");
+                              return;
+                            }
+                            toast.info("Loading toy products…");
+                            import("@/lib/toyProductEngine").then(() => {
+                              toast.success("Toy product engine ready");
+                            });
+                          }}
+                        >
+                          <ShoppingBag className="w-3 h-3" />
+                          Shop
+                          {!hasSubscriptionFeature("toy_generator") && <Lock className="w-2.5 h-2.5 ml-0.5 opacity-60" />}
+                        </Button>
+
+                        {/* AR Mode */}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 text-[11px] rounded-full bg-black/50 hover:bg-black/70 text-white border-0 gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!hasSubscriptionFeature("ar_projection")) {
+                              toast.info("AR Mode requires Adventurer Plus or higher");
+                              return;
+                            }
+                            toast.info("Loading AR engine…");
+                            import("@/lib/arProjectionEngine").then(({ isARAvailable }) => {
+                              if (!isARAvailable()) {
+                                toast.error("AR not supported on this device");
+                              } else {
+                                toast.success("AR engine loaded — place characters in your room!");
+                              }
+                            });
+                          }}
+                        >
+                          <Smartphone className="w-3 h-3" />
+                          AR
+                          {!hasSubscriptionFeature("ar_projection") && <Lock className="w-2.5 h-2.5 ml-0.5 opacity-60" />}
+                        </Button>
+
+                        {/* Alternate Ending */}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 text-[11px] rounded-full bg-black/50 hover:bg-black/70 text-white border-0 gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!hasSubscriptionFeature("interactive_branching")) {
+                              toast.info("Interactive Branching requires Studio Pro plan");
+                              return;
+                            }
+                            toast.info("Loading branching engine…");
+                            import("@/lib/interactiveBranchEngine").then(() => {
+                              toast.success("Choose-your-ending engine ready");
+                            });
+                          }}
+                        >
+                          <GitBranch className="w-3 h-3" />
+                          Alt End
+                          {!hasSubscriptionFeature("interactive_branching") && <Lock className="w-2.5 h-2.5 ml-0.5 opacity-60" />}
+                        </Button>
                       </div>
 
                       {/* Actions overlay */}

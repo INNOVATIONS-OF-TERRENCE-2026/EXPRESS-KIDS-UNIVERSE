@@ -112,6 +112,26 @@ export const FEATURES: Record<string, PlanFeature> = {
     label: "Offline Access",
     description: "Read saved stories without internet",
   },
+  toy_generator: {
+    id: "toy_generator",
+    label: "AI Toy Generator",
+    description: "Auto-generate toy concepts from episode characters",
+  },
+  ar_mode: {
+    id: "ar_mode",
+    label: "AR Character Projection",
+    description: "Project characters into your room via AR",
+  },
+  interactive_branching: {
+    id: "interactive_branching",
+    label: "Choose-Your-Ending",
+    description: "Interactive branching story paths",
+  },
+  voice_cloning: {
+    id: "voice_cloning",
+    label: "AI Voice Cloning",
+    description: "Clone and customise character voices",
+  },
 };
 
 /** Plan definitions */
@@ -150,6 +170,7 @@ export const PLANS: Plan[] = [
       "parent_controls",
       "themes_all",
       "offline",
+      "ar_mode",
     ],
     accent: "hsl(var(--primary))",
     recommended: true,
@@ -172,6 +193,10 @@ export const PLANS: Plan[] = [
       "themes_all",
       "priority_gen",
       "offline",
+      "toy_generator",
+      "ar_mode",
+      "interactive_branching",
+      "voice_cloning",
     ],
     accent: "hsl(var(--accent))",
     recommended: false,
