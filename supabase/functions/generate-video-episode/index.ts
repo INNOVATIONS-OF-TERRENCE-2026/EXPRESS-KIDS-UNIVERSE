@@ -282,16 +282,19 @@ serve(async (req) => {
       );
       for (const r of startResults) { if (r) runwayTasks.push(r); }
 
-      // Poll all tasks until done or timeout (150 s max)
+      // Poll all tasks with exponential backoff until done or timeout (150s)
       if (runwayTasks.length > 0) {
         const MAX_POLL_MS = 150_000;
-        const POLL_MS = 4_000;
+        const BACKOFF = [5000, 5000, 7000, 10000, 15000]; // exponential intervals
         const t0 = Date.now();
         const pending = new Map(runwayTasks.map((t) => [t.taskId, t.idx]));
-        const videoUrls = new Map<number, string>();
+        const videoUrls = new Map<number, string>(); // idx → Runway CDN URL
+        let pollCycle = 0;
 
         while (pending.size > 0 && Date.now() - t0 < MAX_POLL_MS) {
-          await sleep(POLL_MS);
+          const delay = BACKOFF[Math.min(pollCycle, BACKOFF.length - 1)];
+          await sleep(delay);
+          pollCycle++;
 
           const polls = [...pending.entries()].map(async ([taskId, idx]) => {
             try {
@@ -321,14 +324,41 @@ serve(async (req) => {
           });
         }
 
-        // Apply completed video clip URLs to manifest scenes
-        for (const [idx, url] of videoUrls) {
-          compositionScenes[idx].videoClipUrl = url;
+        // Download completed clips from Runway CDN → re-upload to Supabase storage
+        // This permanently hosts the files on our domain & avoids CORS issues
+        for (const [idx, cdnUrl] of videoUrls) {
+          try {
+            const vidRes = await fetch(cdnUrl);
+            if (!vidRes.ok) throw new Error(`HTTP ${vidRes.status}`);
+            const bytes = new Uint8Array(await vidRes.arrayBuffer());
+            const ct = vidRes.headers.get("content-type") || "video/mp4";
+            const ext = ct.includes("mp4") ? "mp4" : "webm";
+            const clipPath = `${jobId}/clip_${idx}.${ext}`;
+
+            const { error: clipUpErr } = await supabaseAdmin.storage
+              .from("video-assets")
+              .upload(clipPath, bytes, { contentType: ct, upsert: true });
+
+            if (!clipUpErr) {
+              const { data: clipPub } = supabaseAdmin.storage
+                .from("video-assets")
+                .getPublicUrl(clipPath);
+              compositionScenes[idx].videoClipUrl = clipPub.publicUrl;
+            } else {
+              // Fallback: use CDN URL directly (may hit CORS in some browsers)
+              compositionScenes[idx].videoClipUrl = cdnUrl;
+              console.warn(`Clip ${idx} storage upload failed, using CDN URL`);
+            }
+          } catch (dlErr) {
+            // Fallback to CDN URL
+            compositionScenes[idx].videoClipUrl = cdnUrl;
+            console.warn(`Clip ${idx} download failed, using CDN URL:`, dlErr);
+          }
         }
 
         const animatedCount = videoUrls.size;
         if (animatedCount > 0) {
-          console.log(`RunwayML: ${animatedCount}/${scenes.length} scenes animated`);
+          console.log(`RunwayML: ${animatedCount}/${scenes.length} scenes animated & saved`);
         }
       }
     }

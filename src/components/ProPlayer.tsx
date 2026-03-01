@@ -1,16 +1,22 @@
 /**
- * ProPlayer.tsx — Cross-browser video player with pro controls.
+ * ProPlayer.tsx — Cinematic cross-browser video player engine.
  *
  * Features:
- *   - Play/Pause, Rewind 5s, Forward 5s
- *   - Timeline scrubber
+ *   - Play / Pause
+ *   - Rewind 5s / Forward 5s
  *   - Volume slider + mute toggle (persisted to localStorage)
+ *   - Playback speed control (0.5x, 1x, 1.5x, 2x)
+ *   - Fullscreen toggle (Fullscreen API + iOS webkitEnterFullscreen)
+ *   - Timeline scrubber
  *   - Save to Gallery button
- *   - Download button (iOS-safe fallback)
- *   - Keyboard: Space, Left/Right arrows, Escape
- *   - Accessibility: aria-labels, focus outlines
+ *   - Download button (cross-origin blob fallback, iOS-safe)
+ *   - Keyboard: Space/K (play), Left/Right (skip), M (mute), F (fullscreen), Escape
+ *   - Mobile touch: tap-to-play, controls auto-hide
  *   - iOS-safe: playsInline, preload="metadata"
- *   - GPU-only animations, no layout shifts
+ *   - WebM + MP4 auto-detection (no hardcoded type)
+ *   - Safari fallback: native controls if custom overlay fails
+ *   - GPU-only animations (transform/opacity), no layout shifts
+ *   - Accessibility: aria-labels, focus outlines
  */
 
 import { useRef, useState, useEffect, useCallback, memo } from "react";
@@ -26,6 +32,9 @@ import {
   X,
   AlertCircle,
   Loader2,
+  Maximize,
+  Minimize,
+  Gauge,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -42,6 +51,8 @@ interface ProPlayerProps {
 /* ── Constants ── */
 const VOLUME_STORAGE_KEY = "eku_player_volume";
 const SKIP_SECONDS = 5;
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+const CONTROLS_HIDE_MS = 3_500;
 
 function getStoredVolume(): number {
   try {
@@ -67,10 +78,19 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Detect MIME type from URL extension */
+function detectMimeType(url: string): string | undefined {
+  const lower = url.toLowerCase().split("?")[0];
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4v")) return "video/mp4";
+  if (lower.endsWith(".ogg") || lower.endsWith(".ogv")) return "video/ogg";
+  return undefined; // let browser auto-detect
+}
+
 type PlayerStatus = "loading" | "ready" | "error";
 
 /* ══════════════════════════════════════════════════════════
-   PRO PLAYER
+   PRO PLAYER — Cinematic Video Engine
    ══════════════════════════════════════════════════════════ */
 export const ProPlayer = memo(function ProPlayer({
   url,
@@ -84,6 +104,8 @@ export const ProPlayer = memo(function ProPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastVolumeRef = useRef(getStoredVolume());
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const useFallbackControls = useRef(false);
 
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -92,6 +114,25 @@ export const ProPlayer = memo(function ProPlayer({
   const [muted, setMuted] = useState(false);
   const [status, setStatus] = useState<PlayerStatus>("loading");
   const [saved, setSaved] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+
+  const mimeType = detectMimeType(url);
+
+  /* ── Auto-hide controls ── */
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(() => {
+      if (videoRef.current && !videoRef.current.paused) {
+        setControlsVisible(false);
+        setShowSpeedMenu(false);
+      }
+    }, CONTROLS_HIDE_MS);
+  }, []);
 
   /* ── Sync volume to video element on mount ── */
   useEffect(() => {
@@ -105,16 +146,23 @@ export const ProPlayer = memo(function ProPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    const onEnded = () => setPlaying(false);
+    const onPlay = () => { setPlaying(true); showControls(); };
+    const onPause = () => { setPlaying(false); setControlsVisible(true); };
+    const onEnded = () => { setPlaying(false); setControlsVisible(true); };
     const onTimeUpdate = () => setCurrentTime(video.currentTime);
     const onLoadedMetadata = () => {
       setDuration(video.duration);
       setStatus("ready");
     };
     const onCanPlay = () => setStatus("ready");
-    const onError = () => setStatus("error");
+    const onError = () => {
+      // If custom playback fails, enable native controls as fallback
+      if (!useFallbackControls.current) {
+        useFallbackControls.current = true;
+        video.controls = true;
+      }
+      setStatus("error");
+    };
     const onWaiting = () => setStatus("loading");
     const onPlaying = () => setStatus("ready");
 
@@ -129,7 +177,6 @@ export const ProPlayer = memo(function ProPlayer({
     video.addEventListener("playing", onPlaying);
 
     return () => {
-      // Stop playback immediately on unmount (prevents audio leak)
       video.pause();
       video.removeAttribute("src");
       video.load();
@@ -142,13 +189,26 @@ export const ProPlayer = memo(function ProPlayer({
       video.removeEventListener("error", onError);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("playing", onPlaying);
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Fullscreen change listener ── */
+  useEffect(() => {
+    const handler = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handler);
+    document.addEventListener("webkitfullscreenchange", handler);
+    return () => {
+      document.removeEventListener("fullscreenchange", handler);
+      document.removeEventListener("webkitfullscreenchange", handler);
     };
   }, []);
 
   /* ── Keyboard shortcuts ── */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Only respond when our container is in the DOM
       if (!containerRef.current) return;
 
       switch (e.key) {
@@ -166,17 +226,22 @@ export const ProPlayer = memo(function ProPlayer({
           skip(SKIP_SECONDS);
           break;
         case "Escape":
-          if (onClose) onClose();
+          if (isFullscreen) toggleFullscreen();
+          else if (onClose) onClose();
           break;
         case "m":
           toggleMute();
+          break;
+        case "f":
+          e.preventDefault();
+          toggleFullscreen();
           break;
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onClose, isFullscreen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Actions ── */
   const togglePlay = useCallback(() => {
@@ -187,13 +252,15 @@ export const ProPlayer = memo(function ProPlayer({
     } else {
       video.pause();
     }
-  }, []);
+    showControls();
+  }, [showControls]);
 
   const skip = useCallback((seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
-  }, []);
+    showControls();
+  }, [showControls]);
 
   const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
@@ -201,7 +268,8 @@ export const ProPlayer = memo(function ProPlayer({
     const t = parseFloat(e.target.value);
     video.currentTime = t;
     setCurrentTime(t);
-  }, []);
+    showControls();
+  }, [showControls]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
@@ -231,21 +299,43 @@ export const ProPlayer = memo(function ProPlayer({
     }
   }, []);
 
+  const toggleFullscreen = useCallback(() => {
+    const container = containerRef.current;
+    const video = videoRef.current;
+    if (!container) return;
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    } else if (container.requestFullscreen) {
+      container.requestFullscreen().catch(() => {});
+    } else if ((video as any)?.webkitEnterFullscreen) {
+      // iOS Safari fallback — fullscreen the video element directly
+      (video as any).webkitEnterFullscreen();
+    }
+  }, []);
+
+  const changeSpeed = useCallback((speed: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = speed;
+    setPlaybackSpeed(speed);
+    setShowSpeedMenu(false);
+    showControls();
+  }, [showControls]);
+
   const handleSave = useCallback(() => {
     if (saved) return;
     setSaved(true);
     onSave?.();
   }, [onSave, saved]);
 
-  const [downloading, setDownloading] = useState(false);
-
   const handleDownload = useCallback(() => {
     if (!url || downloading) return;
-    const filename = title ? `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.mp4` : "video.mp4";
+    const ext = url.toLowerCase().includes(".webm") ? "webm" : "mp4";
+    const filename = title ? `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.${ext}` : `video.${ext}`;
     const isSameOrigin = url.startsWith(window.location.origin) || url.startsWith("/");
 
     if (isSameOrigin) {
-      // Same-origin: anchor download works reliably
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -253,7 +343,6 @@ export const ProPlayer = memo(function ProPlayer({
       a.click();
       document.body.removeChild(a);
     } else {
-      // Cross-origin: fetch as blob then trigger download
       setDownloading(true);
       fetch(url)
         .then((res) => {
@@ -271,24 +360,19 @@ export const ProPlayer = memo(function ProPlayer({
           setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
         })
         .catch(() => {
-          // Final fallback: open in new tab
           window.open(url, "_blank", "noopener,noreferrer");
         })
         .finally(() => setDownloading(false));
     }
   }, [url, title, downloading]);
 
-  /* ── Status label ── */
-  const statusLabel =
-    status === "loading" ? "Loading…" :
-    status === "error" ? "Error loading video" :
-    "Ready";
-
   return (
     <div
       ref={containerRef}
       className={`pro-player relative rounded-2xl overflow-hidden bg-black ${className}`}
       style={{ minHeight: 200 }}
+      onMouseMove={showControls}
+      onTouchStart={showControls}
     >
       {/* Close button (top-right) */}
       {onClose && (
@@ -296,6 +380,7 @@ export const ProPlayer = memo(function ProPlayer({
           onClick={onClose}
           className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/70 transition-colors"
           aria-label="Close player"
+          style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 0.3s" }}
         >
           <X className="w-5 h-5" />
         </button>
@@ -303,12 +388,15 @@ export const ProPlayer = memo(function ProPlayer({
 
       {/* Title overlay */}
       {title && (
-        <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm">
+        <div
+          className="absolute top-3 left-3 z-10 px-3 py-1 rounded-lg bg-black/50 backdrop-blur-sm"
+          style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 0.3s" }}
+        >
           <p className="text-white text-sm font-medium truncate max-w-[240px]">{title}</p>
         </div>
       )}
 
-      {/* Video element */}
+      {/* Video element — NO hardcoded type; uses src directly for auto-detection */}
       <video
         ref={videoRef}
         playsInline
@@ -316,12 +404,10 @@ export const ProPlayer = memo(function ProPlayer({
         controls={false}
         poster={poster}
         className="w-full block cursor-pointer"
-        style={{ borderRadius: 16, aspectRatio: "16/9", objectFit: "contain", background: "#000" }}
+        style={{ borderRadius: isFullscreen ? 0 : 16, aspectRatio: "16/9", objectFit: "contain", background: "#000" }}
         onClick={togglePlay}
-      >
-        <source src={url} type="video/mp4" />
-        Your browser does not support video playback.
-      </video>
+        src={url}
+      />
 
       {/* Loading overlay */}
       {status === "loading" && (
@@ -336,7 +422,11 @@ export const ProPlayer = memo(function ProPlayer({
           <AlertCircle className="w-10 h-10 text-red-400" />
           <p className="text-white text-sm">Failed to load video</p>
           <button
-            onClick={() => videoRef.current?.load()}
+            onClick={() => {
+              setStatus("loading");
+              const v = videoRef.current;
+              if (v) { v.load(); v.play().catch(() => {}); }
+            }}
             className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20 transition-colors"
           >
             Retry
@@ -345,7 +435,10 @@ export const ProPlayer = memo(function ProPlayer({
       )}
 
       {/* ── Controls Bar ── */}
-      <div className="pro-player-controls px-4 py-3 bg-gradient-to-t from-black/80 to-transparent">
+      <div
+        className="pro-player-controls px-4 py-3 bg-gradient-to-t from-black/80 to-transparent"
+        style={{ opacity: controlsVisible ? 1 : 0, transition: "opacity 0.3s" }}
+      >
         {/* Timeline */}
         <div className="flex items-center gap-2 mb-2">
           <span className="text-white/70 text-xs tabular-nums w-10 text-right shrink-0">
@@ -420,11 +513,35 @@ export const ProPlayer = memo(function ProPlayer({
             />
           </div>
 
+          {/* Playback Speed */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSpeedMenu((v) => !v)}
+              className="pro-player-btn"
+              aria-label="Playback speed"
+            >
+              <Gauge className="w-4 h-4" />
+              <span className="text-xs ml-0.5 hidden sm:inline">{playbackSpeed}x</span>
+            </button>
+            {showSpeedMenu && (
+              <div className="absolute bottom-full left-0 mb-2 bg-black/90 backdrop-blur-sm rounded-lg py-1 min-w-[80px] z-30">
+                {SPEED_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => changeSpeed(s)}
+                    className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-white/10 transition-colors ${
+                      playbackSpeed === s ? "text-primary font-bold" : "text-white/80"
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Spacer */}
           <div className="flex-1" />
-
-          {/* Status */}
-          <span className="text-white/50 text-xs hidden sm:block">{statusLabel}</span>
 
           {/* Save */}
           {showSave && onSave && (
@@ -452,8 +569,17 @@ export const ProPlayer = memo(function ProPlayer({
               <Download className="w-4 h-4" />
             )}
             <span className="text-xs hidden sm:inline ml-1">
-              {downloading ? "Downloading…" : "Download"}
+              {downloading ? "…" : "Download"}
             </span>
+          </button>
+
+          {/* Fullscreen */}
+          <button
+            onClick={toggleFullscreen}
+            className="pro-player-btn"
+            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
         </div>
       </div>
