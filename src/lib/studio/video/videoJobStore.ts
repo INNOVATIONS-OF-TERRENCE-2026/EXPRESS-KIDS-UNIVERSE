@@ -101,7 +101,7 @@ export async function createVideoJob(
 
   if (userId) {
     try {
-      await supabase.from("video_jobs").insert({
+      const { error: insertErr } = await supabase.from("video_jobs").insert({
         id,
         user_id: userId,
         request: request as unknown as Json,
@@ -109,6 +109,9 @@ export async function createVideoJob(
         progress: 0,
         step_label: "Queued…",
       });
+
+      // If DB table doesn't exist or RLS blocks → fall back to simulation
+      if (insertErr) throw insertErr;
 
       // Fire-and-forget edge function invocation
       supabase.functions
@@ -125,6 +128,9 @@ export async function createVideoJob(
         })
         .catch((err) => {
           if (import.meta.env.DEV) console.warn("[VideoJobStore] Edge invoke failed:", err);
+          // Edge function failed after DB insert — start local simulation as safety net
+          // If the edge function recovers, DB polling will override simulation state
+          setTimeout(() => simulatePipeline(id), 1000);
         });
     } catch (err) {
       if (import.meta.env.DEV) console.warn("[VideoJobStore] DB insert failed, using simulation:", err);

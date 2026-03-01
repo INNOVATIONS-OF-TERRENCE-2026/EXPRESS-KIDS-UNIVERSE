@@ -68,6 +68,7 @@ export default function VideoStudio() {
   const [playingJob, setPlayingJob] = useState<VideoJob | null>(null);
   const savedJobIds = useRef(new Set<string>());
   const pollTimers = useRef(new Map<string, ReturnType<typeof setInterval>>());
+  const unsubs = useRef(new Map<string, () => void>());
 
   /* ── Load user stories ── */
   useEffect(() => {
@@ -102,6 +103,9 @@ export default function VideoStudio() {
       // Cleanup all poll timers on unmount
       pollTimers.current.forEach((t) => clearInterval(t));
       pollTimers.current.clear();
+      // Cleanup all subscriptions to prevent stale setJobs calls
+      unsubs.current.forEach((fn) => fn());
+      unsubs.current.clear();
     };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,16 +124,26 @@ export default function VideoStudio() {
   // Polls Supabase for edge-function progress, syncs to local cache via pollJobFromDB
   // which calls notify() → triggers any active subscriptions.
   // No toasts here — subscription callbacks handle user-facing feedback.
+  const MAX_POLLS = 100; // ~5 minutes at 3s interval
   const startPolling = useCallback(
     (jobId: string) => {
       if (pollTimers.current.has(jobId)) return;
+      let pollCount = 0;
       const timer = setInterval(async () => {
+        pollCount++;
         const updated = await pollJobFromDB(jobId);
+
+        // Stall detection: if we've polled too many times, give up
+        if (pollCount >= MAX_POLLS) {
+          clearInterval(timer);
+          pollTimers.current.delete(jobId);
+          return;
+        }
+
         if (!updated) return;
 
         // pollJobFromDB syncs to local cache + calls notify()
-        // Subscription callbacks will pick up the update automatically.
-        // Also update state directly for on-mount recovery jobs (no subscription).
+        // For recovery jobs (loaded on mount, no subscription), also update state directly.
         setJobs((prev) =>
           prev.map((j) => (j.id === updated.id ? updated : j)),
         );
@@ -187,6 +201,7 @@ export default function VideoStudio() {
         toast.success(`"${storyTitle}" video is ready!`);
         autoSaveToGallery(updated);
         unsub();
+        unsubs.current.delete(updated.id);
         // Clean up DB poll timer if it's running
         const t = pollTimers.current.get(updated.id);
         if (t) { clearInterval(t); pollTimers.current.delete(updated.id); }
@@ -194,10 +209,13 @@ export default function VideoStudio() {
       if (updated.status === "failed") {
         toast.error(updated.error || "Video generation failed");
         unsub();
+        unsubs.current.delete(updated.id);
         const t = pollTimers.current.get(updated.id);
         if (t) { clearInterval(t); pollTimers.current.delete(updated.id); }
       }
     });
+    // Track for cleanup on unmount
+    unsubs.current.set(job.id, unsub);
 
     // Auth users: ALSO poll DB for real edge-function progress
     // (poll syncs DB → local cache → notify() → subscription fires)
@@ -230,6 +248,9 @@ export default function VideoStudio() {
         else toast.error("Failed to save");
       });
   }, [playingJob, user]);
+
+  /* ── Close player (stable ref for ProPlayer memo) ── */
+  const handleClosePlayer = useCallback(() => setPlayingJob(null), []);
 
   const activeJobs = jobs.filter((j) => !["complete", "failed"].includes(j.status));
   const completedJobs = jobs.filter((j) => j.status === "complete" || j.status === "failed");
@@ -444,7 +465,7 @@ export default function VideoStudio() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={(e) => {
-              if (e.target === e.currentTarget) setPlayingJob(null);
+              if (e.target === e.currentTarget) handleClosePlayer();
             }}
           >
             <motion.div
@@ -458,7 +479,7 @@ export default function VideoStudio() {
                 url={playingJob.outputUrl}
                 title={playingJob.request.storyTitle}
                 poster={playingJob.thumbnailUrl}
-                onClose={() => setPlayingJob(null)}
+                onClose={handleClosePlayer}
                 onSave={handlePlayerSave}
                 showSave={true}
               />

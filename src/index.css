@@ -778,7 +778,8 @@
 }
 
 .pro-player:not(:hover):not(:focus-within) .pro-player-controls {
-  opacity: 0.6;
+  opacity: 0;
+  transition-delay: 2s; /* hide after 2s idle */
 }
 
 .pro-player-btn {

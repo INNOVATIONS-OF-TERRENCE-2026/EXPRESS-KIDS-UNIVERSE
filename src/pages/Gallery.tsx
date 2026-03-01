@@ -36,16 +36,20 @@ export default function Gallery() {
 
   useEffect(() => {
     if (user) {
-      Promise.all([loadStories(), loadVideos()]).finally(() => setLoading(false));
+      Promise.all([loadStories(), loadVideos()])
+        .catch(() => { /* network error — data already has safe defaults */ })
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadStories = async () => {
+    if (!user) return;
     const { data, error } = await supabase
       .from("stories")
       .select("id, title, theme, child_name, reading_level, created_at, status")
+      .eq("user_id", user.id)
       .eq("status", "done")
       .order("created_at", { ascending: false });
 
@@ -76,15 +80,36 @@ export default function Gallery() {
   };
 
   const handleDownloadVideo = useCallback((url: string, title: string) => {
-    try {
+    const filename = `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.mp4`;
+    const isSameOrigin = url.startsWith(window.location.origin) || url.startsWith("/");
+
+    if (isSameOrigin) {
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.mp4`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    } catch {
-      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      // Cross-origin: fetch as blob then trigger download
+      fetch(url)
+        .then((res) => {
+          if (!res.ok) throw new Error("fetch failed");
+          return res.blob();
+        })
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+        })
+        .catch(() => {
+          window.open(url, "_blank", "noopener,noreferrer");
+        });
     }
   }, []);
 
