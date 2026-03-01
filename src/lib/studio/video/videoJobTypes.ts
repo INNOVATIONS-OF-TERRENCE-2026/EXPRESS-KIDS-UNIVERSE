@@ -39,6 +39,23 @@ export interface VideoVoiceAssignment {
   voiceProfileId: string;
 }
 
+/** Cinematic pacing mode */
+export type PacingMode = "story" | "action" | "documentary" | "kids";
+
+export const PACING_MODE_LABELS: Record<PacingMode, string> = {
+  story:       "Story Mode",
+  action:      "Action Mode",
+  documentary: "Documentary Mode",
+  kids:        "Kids Mode",
+};
+
+export const PACING_MODE_DESCRIPTIONS: Record<PacingMode, string> = {
+  story:       "Smooth pacing with natural breathing room",
+  action:      "Tight cuts, high energy, more SFX",
+  documentary: "Slow zooms, calm narration, minimal effects",
+  kids:        "Bright, playful pacing with fun surprises",
+};
+
 /** A video job request */
 export interface VideoJobRequest {
   storyId: string;
@@ -47,6 +64,7 @@ export interface VideoJobRequest {
   provider: VideoProvider;
   voiceAssignments: VideoVoiceAssignment[];
   musicStyle?: string;
+  pacingMode?: PacingMode;
 }
 
 /** A video job in the pipeline */

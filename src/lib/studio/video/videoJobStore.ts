@@ -124,6 +124,7 @@ export async function createVideoJob(
             provider: request.provider,
             voiceAssignments: request.voiceAssignments,
             musicStyle: request.musicStyle,
+            pacingMode: request.pacingMode || "story",
           },
         })
         .catch((err) => {

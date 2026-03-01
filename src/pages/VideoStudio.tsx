@@ -35,7 +35,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { PRESET_VOICES } from "@/lib/studio/voice/voiceTypes";
 import {
   DURATION_LABELS,
+  PACING_MODE_LABELS,
+  PACING_MODE_DESCRIPTIONS,
   type VideoDuration,
+  type PacingMode,
   type VideoJob,
   type VideoVoiceAssignment,
   type CompositionManifest,
@@ -65,6 +68,7 @@ export default function VideoStudio() {
   const [stories, setStories] = useState<StoryOption[]>([]);
   const [selectedStory, setSelectedStory] = useState<StoryOption | null>(null);
   const [duration, setDuration] = useState<VideoDuration>("short");
+  const [pacingMode, setPacingMode] = useState<PacingMode>("kids");
   const [jobs, setJobs] = useState<VideoJob[]>([]);
   const [creating, setCreating] = useState(false);
   const [playingJob, setPlayingJob] = useState<VideoJob | null>(null);
@@ -317,6 +321,7 @@ export default function VideoStudio() {
       provider: "internal" as const,
       voiceAssignments,
       musicStyle: "magical",
+      pacingMode,
     };
 
     // Create job: auth users try DB persist + edge function; falls back to
@@ -504,6 +509,30 @@ export default function VideoStudio() {
                       >
                         <Clock className="w-3.5 h-3.5" />
                         {DURATION_LABELS[d]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cinematic pacing selector */}
+                <div className="mb-6">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
+                    Cinematic Pacing
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {(Object.keys(PACING_MODE_LABELS) as PacingMode[]).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setPacingMode(p)}
+                        title={PACING_MODE_DESCRIPTIONS[p]}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                          pacingMode === p
+                            ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        {PACING_MODE_LABELS[p]}
                       </button>
                     ))}
                   </div>

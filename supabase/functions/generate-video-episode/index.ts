@@ -76,7 +76,11 @@ serve(async (req) => {
       duration = "short",
       voiceAssignments,
       musicStyle,
+      pacingMode = "story",
     } = await req.json();
+
+    const validPacingModes = ["story", "action", "documentary", "kids"];
+    const pacing = validPacingModes.includes(pacingMode) ? pacingMode : "story";
 
     if (!jobId || !storyId) return jsonError("Missing jobId or storyId", 400);
 
@@ -146,6 +150,26 @@ serve(async (req) => {
       narrationText: string;
       caption: string;
       videoClipUrl?: string;
+      /** Orchestrated scene duration (narration + pause buffer) */
+      sceneDuration?: number;
+      /** Pause buffer in seconds */
+      pauseBuffer?: number;
+      /** Emotional intensity 0–1 */
+      emotionalIntensity?: number;
+      /** Scene emotion tag */
+      emotion?: string;
+      /** Enhanced Runway prompt with cinematic camera instructions */
+      enhancedPrompt?: string;
+      /** Camera instructions for renderer */
+      cameraInstructions?: string;
+      /** SFX cue sheet */
+      sfxCues?: Array<{ sfxId: string; sfxName: string; timestamp: number; volume: number; fadeIn: number; fadeOut: number }>;
+      /** BGM ducking envelope points */
+      bgmDucking?: Array<{ timeSec: number; volume: number; curve: string }>;
+      /** Transition into this scene */
+      transitionIn?: { type: string; durationSec: number };
+      /** Transition out of this scene */
+      transitionOut?: { type: string; durationSec: number };
     }
 
     const compositionScenes: ManifestScene[] = [];
@@ -232,6 +256,45 @@ serve(async (req) => {
     }
 
     /* ──────────────────────────────────────────────
+     * STEP 3.25 — AI Timeline Orchestration
+     *
+     * Run narration timing, SFX analysis, BGM ducking,
+     * and shot composition on all scenes. This enriches
+     * the manifest with Hollywood-grade timing metadata.
+     * ────────────────────────────────────────────── */
+    await updateJob(supabaseAdmin, jobId, {
+      status: "processing",
+      progress: 60,
+      step_label: "Computing cinematic timeline…",
+    });
+
+    const storyTheme = (story as Record<string, unknown>).theme as string || "";
+    const orchestration = computeTimelineOrchestration(
+      compositionScenes,
+      pacing,
+      storyTheme,
+    );
+
+    // Enrich manifest scenes with orchestration data
+    for (let i = 0; i < compositionScenes.length; i++) {
+      const orch = orchestration.scenes[i];
+      if (!orch) continue;
+      compositionScenes[i].sceneDuration = orch.sceneDuration;
+      compositionScenes[i].pauseBuffer = orch.pauseBuffer;
+      compositionScenes[i].emotionalIntensity = orch.emotionalIntensity;
+      compositionScenes[i].emotion = orch.emotion;
+      compositionScenes[i].enhancedPrompt = orch.enhancedPrompt;
+      compositionScenes[i].cameraInstructions = orch.cameraInstructions;
+      compositionScenes[i].sfxCues = orch.sfxCues;
+      compositionScenes[i].bgmDucking = orch.bgmDucking;
+      compositionScenes[i].transitionIn = orch.transitionIn;
+      compositionScenes[i].transitionOut = orch.transitionOut;
+    }
+
+    // Update total duration from orchestrated timings
+    totalDuration = orchestration.totalDuration;
+
+    /* ──────────────────────────────────────────────
      * STEP 3.5 — Animate scene images with RunwayML (parallel)
      * ────────────────────────────────────────────── */
     const RUNWAY_API_KEY = Deno.env.get("RUNWAY_API_KEY");
@@ -263,7 +326,7 @@ serve(async (req) => {
               body: JSON.stringify({
                 model: "gen3a_turbo",
                 promptImage: scene.imageUrl,
-                promptText: buildAnimationPrompt(scene.caption, scene.narrationText),
+                promptText: scene.enhancedPrompt || buildAnimationPrompt(scene.caption, scene.narrationText),
                 duration: clipDuration,
                 ratio: "16:9",
               }),
@@ -381,6 +444,9 @@ serve(async (req) => {
       scenes: compositionScenes,
       totalDurationSec: totalDuration,
       narratorVoiceId: elVoiceId,
+      pacingProfile: pacing,
+      musicStyle: musicStyle || "magical",
+      orchestrationVersion: 1,
       createdAt: new Date().toISOString(),
     };
 
@@ -524,4 +590,205 @@ function sleep(ms: number): Promise<void> {
 function buildAnimationPrompt(caption: string, narration: string): string {
   const content = (caption || narration || "").slice(0, 200);
   return `Gentle, smooth, child-friendly animation of a storybook illustration. Soft natural movement, warm and whimsical. ${content}`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   INLINE TIMELINE ORCHESTRATION ENGINE
+
+   Pure math — no external deps. Computes narration timing,
+   SFX cue sheets, BGM ducking envelopes, and shot composition
+   for all scenes in a single pass.
+   ══════════════════════════════════════════════════════════ */
+
+type SceneEmotion = "calm" | "dramatic" | "action" | "playful" | "magical" | "tense" | "triumphant" | "emotional";
+
+function moodToEmotion(mood: string): SceneEmotion {
+  const map: Record<string, SceneEmotion> = {
+    adventurous: "action", calm: "calm", tense: "tense",
+    magical: "magical", playful: "playful",
+    emotional: "emotional", triumphant: "triumphant",
+  };
+  return map[mood] || "calm";
+}
+
+/** Infer mood from theme + scene position */
+function inferSceneMood(theme: string, idx: number, total: number): string {
+  const pos = idx / Math.max(total - 1, 1);
+  if (pos > 0.9) return "triumphant";
+  if (pos > 0.65) return "tense";
+  if (pos < 0.15) return "adventurous";
+  const themeMap: Record<string, string> = {
+    "Space Quest": "adventurous", "Magic Forest": "magical",
+    "Ocean Voyage": "calm", "Super Builders": "playful",
+    "Dino Discovery": "adventurous",
+  };
+  return themeMap[theme] || "playful";
+}
+
+const PAUSE_BUFFERS: Record<string, number> = {
+  calm: 0.4, dramatic: 0.8, action: 0.2, playful: 0.3,
+  magical: 0.5, tense: 0.6, triumphant: 0.7, emotional: 0.8,
+};
+
+const INTENSITY_MAP: Record<string, number> = {
+  calm: 0.2, playful: 0.4, magical: 0.5, tense: 0.7,
+  dramatic: 0.8, action: 0.9, emotional: 0.75, triumphant: 0.85,
+};
+
+const PACING_MULT: Record<string, number> = {
+  story: 1.0, action: 0.7, documentary: 1.3, kids: 1.1,
+};
+
+const SFX_KEYWORDS: Record<string, { sfxId: string; sfxName: string; vol: number; fadeIn: number; fadeOut: number; dur: number }> = {
+  boom:      { sfxId: "sfx_boom",     sfxName: "Boom",        vol: 0.70, fadeIn: 0.02, fadeOut: 0.15, dur: 1.2 },
+  crash:     { sfxId: "sfx_crash",    sfxName: "Crash",       vol: 0.65, fadeIn: 0.02, fadeOut: 0.20, dur: 1.5 },
+  laugh:     { sfxId: "sfx_laugh",    sfxName: "Laughter",    vol: 0.45, fadeIn: 0.05, fadeOut: 0.10, dur: 1.0 },
+  whisper:   { sfxId: "sfx_whisper",  sfxName: "Whisper",     vol: 0.30, fadeIn: 0.10, fadeOut: 0.15, dur: 0.8 },
+  splash:    { sfxId: "sfx_splash",   sfxName: "Splash",      vol: 0.50, fadeIn: 0.02, fadeOut: 0.15, dur: 0.8 },
+  thunder:   { sfxId: "sfx_thunder",  sfxName: "Thunder",     vol: 0.75, fadeIn: 0.05, fadeOut: 0.30, dur: 2.0 },
+  roar:      { sfxId: "sfx_roar",     sfxName: "Roar",        vol: 0.65, fadeIn: 0.03, fadeOut: 0.20, dur: 1.5 },
+  slam:      { sfxId: "sfx_slam",     sfxName: "Door Slam",   vol: 0.55, fadeIn: 0.01, fadeOut: 0.12, dur: 0.6 },
+  magic:     { sfxId: "sfx_magic",    sfxName: "Magic Spell", vol: 0.50, fadeIn: 0.08, fadeOut: 0.25, dur: 1.5 },
+  sparkle:   { sfxId: "sfx_sparkle",  sfxName: "Sparkle",     vol: 0.40, fadeIn: 0.05, fadeOut: 0.20, dur: 1.2 },
+  whoosh:    { sfxId: "sfx_whoosh",   sfxName: "Whoosh",      vol: 0.45, fadeIn: 0.02, fadeOut: 0.10, dur: 0.6 },
+  gasp:      { sfxId: "sfx_gasp",     sfxName: "Gasp",        vol: 0.40, fadeIn: 0.02, fadeOut: 0.05, dur: 0.4 },
+  cheer:     { sfxId: "sfx_cheer",    sfxName: "Cheering",    vol: 0.50, fadeIn: 0.05, fadeOut: 0.15, dur: 1.2 },
+  wind:      { sfxId: "sfx_wind",     sfxName: "Wind",        vol: 0.35, fadeIn: 0.20, fadeOut: 0.30, dur: 2.5 },
+};
+
+const CAMERA_KEYWORDS: Record<string, string> = {
+  static:      "locked-off tripod shot, stable composition",
+  "slow-pan":  "slow cinematic pan, smooth lateral movement",
+  "dolly-in":  "slow cinematic dolly-in camera movement, subtle parallax depth",
+  "dolly-out": "cinematic dolly-out reveal, expanding field of view",
+  "zoom-in":   "dynamic rack focus, gradual zoom into subject",
+  tracking:    "smooth tracking shot following action, slight handheld realism",
+  "crane-up":  "crane-up reveal shot, ascending vertical camera movement",
+};
+
+const ATMOS = ["volumetric lighting", "shallow depth of field", "natural film grain", "35mm cinematic film look"];
+
+const CAMERA_MOTIONS: Record<string, string[]> = {
+  calm: ["static", "slow-pan"], playful: ["slow-pan", "tracking"],
+  magical: ["dolly-in", "crane-up"], tense: ["zoom-in", "static"],
+  dramatic: ["dolly-in", "zoom-in"], action: ["tracking", "dolly-out"],
+  emotional: ["dolly-in", "slow-pan"], triumphant: ["crane-up", "dolly-out"],
+};
+
+const TRANSITION_MAP: Record<string, string> = {
+  calm: "crossfade", playful: "crossfade", magical: "dissolve",
+  tense: "hard-cut", dramatic: "hard-cut", action: "hard-cut",
+  emotional: "crossfade", triumphant: "dip-to-black",
+};
+
+const TRANSITION_DUR: Record<string, number> = {
+  crossfade: 0.8, "hard-cut": 0.1, "dip-to-black": 1.2, dissolve: 1.0,
+};
+
+interface OrchScene {
+  sceneDuration: number;
+  pauseBuffer: number;
+  emotionalIntensity: number;
+  emotion: string;
+  enhancedPrompt: string;
+  cameraInstructions: string;
+  sfxCues: Array<{ sfxId: string; sfxName: string; timestamp: number; volume: number; fadeIn: number; fadeOut: number }>;
+  bgmDucking: Array<{ timeSec: number; volume: number; curve: string }>;
+  transitionIn: { type: string; durationSec: number };
+  transitionOut: { type: string; durationSec: number };
+}
+
+function computeTimelineOrchestration(
+  manifestScenes: Array<{ audioDurationSec: number; narrationText: string; caption: string; imageUrl: string | null }>,
+  pacingMode: string,
+  theme: string,
+): { scenes: OrchScene[]; totalDuration: number } {
+  const total = manifestScenes.length;
+  const orchScenes: OrchScene[] = [];
+  let totalDur = 0;
+
+  for (let i = 0; i < total; i++) {
+    const s = manifestScenes[i];
+    const mood = inferSceneMood(theme, i, total);
+    const emotion = moodToEmotion(mood);
+    const intensity = INTENSITY_MAP[emotion] ?? 0.5;
+    const pacMult = PACING_MULT[pacingMode] ?? 1.0;
+
+    // Narration timing
+    const narDur = s.audioDurationSec > 0 ? s.audioDurationSec : Math.max(2, (s.narrationText.length / 150) * 10);
+    const basePause = PAUSE_BUFFERS[emotion] ?? 0.4;
+    const pauseBuffer = Math.round(basePause * pacMult * (1 + intensity * 0.2) * 100) / 100;
+    const sceneDuration = Math.round((narDur + pauseBuffer) * 100) / 100;
+
+    // SFX detection
+    const words = s.narrationText.split(/\s+/).filter(Boolean);
+    const sfxCues: OrchScene["sfxCues"] = [];
+    let lastSfxEnd = -1;
+    for (let w = 0; w < words.length; w++) {
+      const clean = words[w].toLowerCase().replace(/[^a-z]/g, "");
+      const sfx = SFX_KEYWORDS[clean];
+      if (!sfx) continue;
+      const ts = Math.max(0, (w / words.length) * narDur - 0.1);
+      if (ts < lastSfxEnd + 0.3) continue;
+      const emotionBoost = emotion === "action" || emotion === "dramatic" ? 1.15 : 1.0;
+      sfxCues.push({
+        sfxId: sfx.sfxId, sfxName: sfx.sfxName,
+        timestamp: Math.round(ts * 1000) / 1000,
+        volume: Math.min(1, Math.round(sfx.vol * emotionBoost * 100) / 100),
+        fadeIn: sfx.fadeIn, fadeOut: sfx.fadeOut,
+      });
+      lastSfxEnd = ts + sfx.dur;
+    }
+
+    // BGM ducking
+    const bgmDucking: OrchScene["bgmDucking"] = [
+      { timeSec: 0, volume: 1.0, curve: "instant" },
+    ];
+    if (narDur > 0) {
+      const fadeD = 0.4;
+      bgmDucking.push({ timeSec: Math.max(0, 0), volume: 1.0, curve: "instant" });
+      bgmDucking.push({ timeSec: Math.min(fadeD, narDur), volume: 0.30, curve: "exponential" });
+      bgmDucking.push({ timeSec: narDur, volume: 0.30, curve: "instant" });
+      if (narDur + fadeD < sceneDuration) {
+        bgmDucking.push({ timeSec: narDur + fadeD, volume: 1.0, curve: "exponential" });
+      }
+    }
+
+    // Camera & enhanced prompt
+    const motionChoices = CAMERA_MOTIONS[emotion] || ["static"];
+    const motion = motionChoices[i % motionChoices.length];
+    const camDesc = CAMERA_KEYWORDS[motion] || "stable composition";
+    const atmosN = Math.max(1, Math.round(ATMOS.length * (PACING_MULT[pacingMode] === 0.7 ? 0.8 : 0.5)));
+    const atmosStr = ATMOS.slice(0, atmosN).join(", ");
+    const cameraInstructions = `${camDesc}, ${atmosStr}`;
+
+    const colorHints: Record<string, string> = {
+      calm: "warm golden hour tones", magical: "ethereal pastel glow",
+      tense: "desaturated cool tones", action: "high contrast, motion blur",
+      playful: "bright saturated colors", dramatic: "chiaroscuro lighting",
+      emotional: "soft diffused light", triumphant: "radiant golden backlight",
+    };
+    const basePrompt = buildAnimationPrompt(s.caption, s.narrationText);
+    const enhancedPrompt = [basePrompt, camDesc, atmosStr, colorHints[emotion] || ""].filter(Boolean).join(", ");
+
+    // Transitions
+    const transType = TRANSITION_MAP[emotion] || "crossfade";
+    const transIn = {
+      type: i === 0 ? "dip-to-black" : transType,
+      durationSec: i === 0 ? 0.8 : (TRANSITION_DUR[transType] || 0.8),
+    };
+    const transOut = {
+      type: i === total - 1 ? "dip-to-black" : transType,
+      durationSec: TRANSITION_DUR[i === total - 1 ? "dip-to-black" : transType] || 0.8,
+    };
+
+    orchScenes.push({
+      sceneDuration, pauseBuffer, emotionalIntensity: intensity, emotion,
+      enhancedPrompt, cameraInstructions, sfxCues, bgmDucking,
+      transitionIn: transIn, transitionOut: transOut,
+    });
+    totalDur += sceneDuration;
+  }
+
+  return { scenes: orchScenes, totalDuration: Math.round(totalDur * 100) / 100 };
 }
