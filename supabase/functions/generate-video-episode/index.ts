@@ -28,6 +28,7 @@ const corsHeaders = {
 };
 
 const ELEVENLABS_BASE = "https://api.elevenlabs.io/v1";
+const RUNWAY_BASE = "https://api.dev.runwayml.com/v1";
 
 /** ElevenLabs default catalog voice IDs mapped from preset profile IDs */
 const VOICE_MAP: Record<string, string> = {
@@ -144,6 +145,7 @@ serve(async (req) => {
       audioDurationSec: number;
       narrationText: string;
       caption: string;
+      videoClipUrl?: string;
     }
 
     const compositionScenes: ManifestScene[] = [];
@@ -227,6 +229,108 @@ serve(async (req) => {
         caption: (scene.caption as string) || "",
       });
       totalDuration += audioDurationSec;
+    }
+
+    /* ──────────────────────────────────────────────
+     * STEP 3.5 — Animate scene images with RunwayML (parallel)
+     * ────────────────────────────────────────────── */
+    const RUNWAY_API_KEY = Deno.env.get("RUNWAY_API_KEY");
+
+    if (RUNWAY_API_KEY) {
+      await updateJob(supabaseAdmin, jobId, {
+        status: "processing",
+        progress: 61,
+        step_label: "Animating scenes with AI video…",
+      });
+
+      const clipDuration = duration === "full" ? 10 : 5;
+
+      interface RunwayTask { idx: number; taskId: string }
+      const runwayTasks: RunwayTask[] = [];
+
+      // Fire all image-to-video tasks in parallel
+      const startResults = await Promise.all(
+        compositionScenes.map(async (scene, i) => {
+          if (!scene.imageUrl) return null;
+          try {
+            const res = await fetch(`${RUNWAY_BASE}/image_to_video`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${RUNWAY_API_KEY}`,
+                "Content-Type": "application/json",
+                "X-Runway-Version": "2024-11-06",
+              },
+              body: JSON.stringify({
+                model: "gen3a_turbo",
+                promptImage: scene.imageUrl,
+                promptText: buildAnimationPrompt(scene.caption, scene.narrationText),
+                duration: clipDuration,
+                ratio: "16:9",
+              }),
+            });
+            if (!res.ok) {
+              console.error(`RunwayML start failed scene ${i + 1}:`, res.status, await res.text());
+              return null;
+            }
+            const data = await res.json();
+            return data.id ? { idx: i, taskId: data.id as string } : null;
+          } catch (err) {
+            console.error(`RunwayML create error scene ${i + 1}:`, err);
+            return null;
+          }
+        }),
+      );
+      for (const r of startResults) { if (r) runwayTasks.push(r); }
+
+      // Poll all tasks until done or timeout (150 s max)
+      if (runwayTasks.length > 0) {
+        const MAX_POLL_MS = 150_000;
+        const POLL_MS = 4_000;
+        const t0 = Date.now();
+        const pending = new Map(runwayTasks.map((t) => [t.taskId, t.idx]));
+        const videoUrls = new Map<number, string>();
+
+        while (pending.size > 0 && Date.now() - t0 < MAX_POLL_MS) {
+          await sleep(POLL_MS);
+
+          const polls = [...pending.entries()].map(async ([taskId, idx]) => {
+            try {
+              const res = await fetch(`${RUNWAY_BASE}/tasks/${taskId}`, {
+                headers: {
+                  "Authorization": `Bearer ${RUNWAY_API_KEY}`,
+                  "X-Runway-Version": "2024-11-06",
+                },
+              });
+              if (!res.ok) return;
+              const d = await res.json();
+              if (d.status === "SUCCEEDED" && d.output?.[0]) {
+                videoUrls.set(idx, d.output[0]);
+                pending.delete(taskId);
+              } else if (d.status === "FAILED") {
+                console.error(`RunwayML task ${taskId} failed:`, d.failure);
+                pending.delete(taskId);
+              }
+            } catch { /* network hiccup — retry next poll cycle */ }
+          });
+          await Promise.all(polls);
+
+          const done = runwayTasks.length - pending.size;
+          await updateJob(supabaseAdmin, jobId, {
+            progress: 61 + Math.round((done / runwayTasks.length) * 4),
+            step_label: `Animating scenes… ${done}/${runwayTasks.length} done`,
+          });
+        }
+
+        // Apply completed video clip URLs to manifest scenes
+        for (const [idx, url] of videoUrls) {
+          compositionScenes[idx].videoClipUrl = url;
+        }
+
+        const animatedCount = videoUrls.size;
+        if (animatedCount > 0) {
+          console.log(`RunwayML: ${animatedCount}/${scenes.length} scenes animated`);
+        }
+      }
     }
 
     /* ──────────────────────────────────────────────
@@ -380,4 +484,14 @@ function distributeEvenly(
     result.push(paragraphs.slice(start, Math.max(end, start + 1)).join("\n\n"));
   }
   return result;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Build a concise animation prompt for RunwayML from scene content */
+function buildAnimationPrompt(caption: string, narration: string): string {
+  const content = (caption || narration || "").slice(0, 200);
+  return `Gentle, smooth, child-friendly animation of a storybook illustration. Soft natural movement, warm and whimsical. ${content}`;
 }

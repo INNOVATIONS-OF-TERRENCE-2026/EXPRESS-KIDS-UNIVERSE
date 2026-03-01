@@ -93,6 +93,8 @@ export interface CompositionScene {
   narrationText: string;
   /** Short scene caption (used for subtitle overlay) */
   caption: string;
+  /** RunwayML animated video clip URL (replaces static Ken Burns when available) */
+  videoClipUrl?: string;
 }
 
 /** Full composition manifest stored in Supabase storage */

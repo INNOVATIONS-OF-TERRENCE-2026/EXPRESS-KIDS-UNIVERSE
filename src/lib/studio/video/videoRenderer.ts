@@ -45,6 +45,19 @@ export async function renderVideoFromManifest(
     manifest.scenes.map((s) => loadImage(s.imageUrl)),
   );
 
+  // ── Pre-load RunwayML video clips (when available) ──
+  const hasVideoClips = manifest.scenes.some((s) => s.videoClipUrl);
+  const videos: (HTMLVideoElement | null)[] = [];
+  if (hasVideoClips) {
+    callbacks.onPhase("Loading animated clips…");
+    callbacks.onProgress(3);
+    for (const scene of manifest.scenes) {
+      videos.push(await loadVideo(scene.videoClipUrl));
+    }
+  } else {
+    manifest.scenes.forEach(() => videos.push(null));
+  }
+
   callbacks.onPhase("Loading narration audio…");
   callbacks.onProgress(5);
 
@@ -149,6 +162,7 @@ export async function renderVideoFromManifest(
 
     // ── Animation loop ──
     // Use setInterval for consistent timing even when tab loses focus briefly
+    let prevSceneIdx = -1;
     const interval = setInterval(() => {
       const elapsed = audioCtx.currentTime - startTime;
       const progress = Math.min(elapsed / actualTotalDuration, 1);
@@ -173,10 +187,24 @@ export async function renderVideoFromManifest(
         1,
       );
 
-      drawScene(ctx, images[sceneIdx], manifest.scenes[sceneIdx], sceneProgress, sceneIdx);
+      // Handle RunwayML video clip playback on scene transitions
+      if (sceneIdx !== prevSceneIdx) {
+        if (prevSceneIdx >= 0 && videos[prevSceneIdx]) {
+          videos[prevSceneIdx]!.pause();
+        }
+        prevSceneIdx = sceneIdx;
+        if (videos[sceneIdx]) {
+          videos[sceneIdx]!.currentTime = 0;
+          videos[sceneIdx]!.play().catch(() => {});
+        }
+      }
+
+      drawScene(ctx, images[sceneIdx], videos[sceneIdx], manifest.scenes[sceneIdx], sceneProgress, sceneIdx);
 
       if (progress >= 1) {
         clearInterval(interval);
+        // Stop any active video clips
+        videos.forEach((v) => { if (v) v.pause(); });
         // Draw final black frame
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -222,6 +250,7 @@ export async function uploadRenderedVideo(
 function drawScene(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
+  video: HTMLVideoElement | null,
   scene: CompositionScene,
   progress: number, // 0-1 within this scene
   sceneIdx: number,
@@ -230,7 +259,31 @@ function drawScene(
   ctx.fillStyle = "#0a0a1a";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  if (img && img.naturalWidth > 0) {
+  if (video && video.readyState >= 2) {
+    // RunwayML animated clip — cover-fit with very subtle zoom
+    ctx.save();
+    const scale = 1.0 + progress * 0.03;
+    ctx.translate(WIDTH / 2, HEIGHT / 2);
+    ctx.scale(scale, scale);
+    ctx.translate(-WIDTH / 2, -HEIGHT / 2);
+
+    const vidRatio = video.videoWidth / video.videoHeight;
+    const canvasRatio = WIDTH / HEIGHT;
+    let dw: number, dh: number, dx: number, dy: number;
+    if (vidRatio > canvasRatio) {
+      dh = HEIGHT;
+      dw = HEIGHT * vidRatio;
+      dx = (WIDTH - dw) / 2;
+      dy = 0;
+    } else {
+      dw = WIDTH;
+      dh = WIDTH / vidRatio;
+      dx = 0;
+      dy = (HEIGHT - dh) / 2;
+    }
+    ctx.drawImage(video, dx, dy, dw, dh);
+    ctx.restore();
+  } else if (img && img.naturalWidth > 0) {
     // Ken Burns: slow zoom + gentle pan
     ctx.save();
     const scale = 1.0 + progress * 0.12; // zoom 1.0 → 1.12
@@ -340,6 +393,32 @@ function loadImage(url: string | null): Promise<HTMLImageElement | null> {
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = url;
+  });
+}
+
+function loadVideo(url: string | null | undefined): Promise<HTMLVideoElement | null> {
+  if (!url) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    const timeout = setTimeout(() => {
+      console.warn("[VideoRenderer] Video clip load timeout:", url);
+      resolve(null);
+    }, 30_000);
+    video.onloadeddata = () => {
+      clearTimeout(timeout);
+      resolve(video);
+    };
+    video.onerror = () => {
+      clearTimeout(timeout);
+      console.warn("[VideoRenderer] Failed to load video clip:", url);
+      resolve(null);
+    };
+    video.src = url;
+    video.load();
   });
 }
 
