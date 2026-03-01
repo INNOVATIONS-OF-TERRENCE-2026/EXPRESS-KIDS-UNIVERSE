@@ -328,13 +328,19 @@ export const ThemeModal = memo(function ThemeModal({ open, onClose }: ThemeModal
 
   /* ── Event handlers ── */
   const handleSetTheme = useCallback(
-    (id: string) => { setTheme(id); },
-    [setTheme],
+    (id: string) => {
+      setTheme(id);
+      setTimeout(() => onClose(), 300);
+    },
+    [setTheme, onClose],
   );
 
   const handleModeToggle = useCallback(
-    (mode: ThemeMode) => { setThemeMode(mode); },
-    [setThemeMode],
+    (mode: ThemeMode) => {
+      setThemeMode(mode);
+      setTimeout(() => onClose(), 300);
+    },
+    [setThemeMode, onClose],
   );
 
   /* ── Global keydown for ESC when sheet ref not focused ── */
