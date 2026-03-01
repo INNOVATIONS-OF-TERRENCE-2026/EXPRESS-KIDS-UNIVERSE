@@ -1,0 +1,79 @@
+/**
+ * videoJobTypes.ts — Type definitions for video generation job pipeline.
+ *
+ * Defines the full lifecycle of a video job:
+ *   queued → processing → rendering → encoding → complete | failed
+ *
+ * Provider-agnostic — supports future integration with Runway, Pika,
+ * Luma, or internal WebGL renderer.
+ */
+
+export type VideoJobStatus =
+  | "queued"
+  | "processing"
+  | "rendering"
+  | "encoding"
+  | "complete"
+  | "failed";
+
+export type VideoProvider = "internal" | "runway" | "pika" | "luma";
+
+export type VideoDuration = "short" | "medium" | "full";
+
+export const DURATION_LABELS: Record<VideoDuration, string> = {
+  short: "2 min trailer",
+  medium: "5 min clip",
+  full: "15 min episode",
+};
+
+export const DURATION_SEC: Record<VideoDuration, number> = {
+  short: 120,
+  medium: 300,
+  full: 900,
+};
+
+/** Voice assignment for a video character */
+export interface VideoVoiceAssignment {
+  characterId: string;
+  characterName: string;
+  voiceProfileId: string;
+}
+
+/** A video job request */
+export interface VideoJobRequest {
+  storyId: string;
+  storyTitle: string;
+  duration: VideoDuration;
+  provider: VideoProvider;
+  voiceAssignments: VideoVoiceAssignment[];
+  musicStyle?: string;
+}
+
+/** A video job in the pipeline */
+export interface VideoJob {
+  id: string;
+  request: VideoJobRequest;
+  status: VideoJobStatus;
+  /** Progress 0-100 */
+  progress: number;
+  /** Current step label */
+  stepLabel: string;
+  /** Output video URL when complete */
+  outputUrl?: string;
+  /** Thumbnail URL when available */
+  thumbnailUrl?: string;
+  /** Error message on failure */
+  error?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Active step descriptions for UI */
+export const STATUS_LABELS: Record<VideoJobStatus, string> = {
+  queued: "Waiting in queue…",
+  processing: "Generating scenes…",
+  rendering: "Rendering video…",
+  encoding: "Encoding final cut…",
+  complete: "Ready to watch!",
+  failed: "Generation failed",
+};

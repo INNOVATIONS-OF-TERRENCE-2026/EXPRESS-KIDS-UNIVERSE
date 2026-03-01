@@ -58,7 +58,7 @@ export interface VoiceRequest {
   text: string;
   voiceProfile: VoiceProfile;
   /** Emotion modifier for this specific utterance */
-  emotion?: "neutral" | "happy" | "sad" | "excited" | "scared" | "angry" | "curious";
+  emotion?: "neutral" | "happy" | "sad" | "excited" | "scared" | "angry" | "curious" | "surprised";
 }
 
 /** Voice generation result */

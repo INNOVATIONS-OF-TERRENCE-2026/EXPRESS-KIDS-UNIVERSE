@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { BookOpen, RotateCcw, ArrowLeft, Sparkles, ImageIcon, Loader2, Volume2, Pause, Square, FastForward } from "lucide-react";
 import { AuroraGradient, CinematicButton, StaggerContainer, StaggerItem } from "@/components/eku";
 import { supabase } from "@/integrations/supabase/client";
-import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
+import { useVoiceEngine } from "@/hooks/useVoiceEngine";
+import VoiceSelector from "@/components/VoiceSelector";
 import { getParentSettings } from "@/lib/storage";
 import { toast } from "sonner";
 
@@ -17,7 +18,7 @@ export default function AdventureResults() {
   const [story, setStory] = useState<Story | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
-  const { speak, stop, pause, resume, speaking, paused, currentIndex, rate, setRate } = useSpeechSynthesis();
+  const { speak, stop, pause, resume, speaking, paused, currentIndex, rate, setRate, selectedProfile, setSelectedProfile, availableVoices } = useVoiceEngine();
 
   useEffect(() => {
     if (!storyId) { navigate("/create"); return; }
@@ -96,13 +97,9 @@ export default function AdventureResults() {
                     <BookOpen className="w-5 h-5" /><span className="font-semibold">Reader Mode</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <VoiceSelector selectedProfile={selectedProfile} onSelect={setSelectedProfile} availableVoices={availableVoices} />
                     {speaking && (
                       <>
-                        <select value={rate} onChange={e => setRate(Number(e.target.value))} className="text-xs bg-muted rounded px-2 py-1 text-foreground">
-                          <option value={0.75}>0.75x</option>
-                          <option value={1}>1x</option>
-                          <option value={1.25}>1.25x</option>
-                        </select>
                         <CinematicButton variant="ghost" size="sm" onClick={paused ? resume : pause}>
                           <Pause className="w-4 h-4" />
                         </CinematicButton>
@@ -141,7 +138,9 @@ export default function AdventureResults() {
                   <motion.div key={scene.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.1 }} className="glass-card overflow-hidden group">
                     <div className="aspect-video bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden">
                       {scene.image_url ? (
-                        <img src={scene.image_url} alt={scene.caption} className="w-full h-full object-cover" />
+                        <Link to={`/adventure/${storyId}/scene/${scene.scene_number}`} className="block w-full h-full">
+                          <img src={scene.image_url} alt={scene.caption} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        </Link>
                       ) : generatingImages.has(scene.id) ? (
                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
                       ) : (
@@ -150,7 +149,9 @@ export default function AdventureResults() {
                         </button>
                       )}
                     </div>
-                    <div className="p-4"><p className="text-sm font-medium">{scene.caption}</p></div>
+                    <Link to={`/adventure/${storyId}/scene/${scene.scene_number}`} className="block p-4 hover:bg-foreground/5 transition-colors">
+                      <p className="text-sm font-medium">{scene.caption}</p>
+                    </Link>
                   </motion.div>
                 ))}
               </div>

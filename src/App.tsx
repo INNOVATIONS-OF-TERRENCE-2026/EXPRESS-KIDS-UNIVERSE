@@ -22,6 +22,8 @@ import Leadership from "./pages/Leadership";
 import StudioDashboard from "./pages/StudioDashboard";
 import Pricing from "./pages/Pricing";
 import SeoSuite from "./pages/SeoSuite";
+import SceneDetail from "./pages/SceneDetail";
+import VideoStudio from "./pages/VideoStudio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +50,8 @@ function AppRoutes() {
           <Route path="/create" element={<ProtectedRoute><CreateWizard /></ProtectedRoute>} />
           <Route path="/create/status" element={<ProtectedRoute><CreateStatus /></ProtectedRoute>} />
           <Route path="/adventure/:storyId" element={<ProtectedRoute><AdventureResults /></ProtectedRoute>} />
+          <Route path="/adventure/:storyId/scene/:sceneNumber" element={<ProtectedRoute><SceneDetail /></ProtectedRoute>} />
+          <Route path="/studio/video" element={<ProtectedRoute><VideoStudio /></ProtectedRoute>} />
           <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
           <Route path="/parents" element={<ProtectedRoute><ParentControls /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />

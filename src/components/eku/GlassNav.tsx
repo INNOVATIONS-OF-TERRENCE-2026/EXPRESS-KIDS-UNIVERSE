@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, Images, Shield, HelpCircle, Menu, X, LogIn, LogOut, Volume2, VolumeX, TrendingUp } from "lucide-react";
+import { Sparkles, Images, Shield, HelpCircle, Menu, X, LogIn, LogOut, Volume2, VolumeX, TrendingUp, Film } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +17,7 @@ import {
 const navItems = [
   { to: "/create", label: "Create", icon: Sparkles },
   { to: "/gallery", label: "Gallery", icon: Images },
+  { to: "/studio/video", label: "Video Studio", icon: Film },
   { to: "/seo", label: "SEO Suite", icon: TrendingUp },
   { to: "/parents", label: "Parent Controls", icon: Shield },
 ];
