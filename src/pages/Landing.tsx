@@ -2,13 +2,23 @@ import { lazy, Suspense } from "react";
 import { CosmicDust } from "@/components/eku";
 import { Footer } from "@/components/eku/Footer";
 import { HeroSection } from "@/components/landing/HeroSection";
+import { useCinematicAudioUnlock } from "@/components/landing/CinematicSoundEngine";
 
 /* ── Lazy-load heavy sections below the fold ─────────────── */
 const FeatureUniverseSection = lazy(() =>
   import("@/components/landing/FeatureUniverseSection").then((m) => ({ default: m.FeatureUniverseSection }))
 );
+const EpisodeBuilderPreview = lazy(() =>
+  import("@/components/landing/EpisodeBuilderPreview").then((m) => ({ default: m.EpisodeBuilderPreview }))
+);
 const StudioProSection = lazy(() =>
   import("@/components/landing/StudioProSection").then((m) => ({ default: m.StudioProSection }))
+);
+const DemoSandbox = lazy(() =>
+  import("@/components/landing/DemoSandbox").then((m) => ({ default: m.DemoSandbox }))
+);
+const TrailerSection = lazy(() =>
+  import("@/components/landing/TrailerSection").then((m) => ({ default: m.TrailerSection }))
 );
 const PricingSection = lazy(() =>
   import("@/components/landing/PricingSection").then((m) => ({ default: m.PricingSection }))
@@ -36,6 +46,9 @@ function SectionFallback() {
 
 /* ── Landing page ────────────────────────────────────────── */
 export default function Landing() {
+  /* Unlock cinematic audio on first user interaction */
+  useCinematicAudioUnlock();
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
       {/* 1 — Hero */}
@@ -49,37 +62,52 @@ export default function Landing() {
         <FeatureUniverseSection />
       </Suspense>
 
-      {/* 3 — Studio Pro Pipeline */}
+      {/* 3 — Episode Builder Preview (interactive wizard) */}
+      <Suspense fallback={<SectionFallback />}>
+        <EpisodeBuilderPreview />
+      </Suspense>
+
+      {/* 4 — Studio Pro Pipeline */}
       <Suspense fallback={<SectionFallback />}>
         <StudioProSection />
       </Suspense>
 
-      {/* 4 — Pricing */}
+      {/* 5 — Demo Sandbox (try it instantly) */}
+      <Suspense fallback={<SectionFallback />}>
+        <DemoSandbox />
+      </Suspense>
+
+      {/* 6 — Cinematic Trailer */}
+      <Suspense fallback={<SectionFallback />}>
+        <TrailerSection />
+      </Suspense>
+
+      {/* 7 — Pricing */}
       <Suspense fallback={<SectionFallback />}>
         <PricingSection />
       </Suspense>
 
-      {/* 5 — SEO Creator Suite */}
+      {/* 8 — SEO Creator Suite */}
       <Suspense fallback={<SectionFallback />}>
         <SeoSection />
       </Suspense>
 
-      {/* 6 — Theme Showcase */}
+      {/* 9 — Theme Showcase */}
       <Suspense fallback={<SectionFallback />}>
         <ThemeShowcaseSection />
       </Suspense>
 
-      {/* 7 — Parent Trust */}
+      {/* 10 — Parent Trust */}
       <Suspense fallback={<SectionFallback />}>
         <ParentTrustSection />
       </Suspense>
 
-      {/* 8 — Gallery Preview */}
+      {/* 11 — Gallery Preview */}
       <Suspense fallback={<SectionFallback />}>
         <GalleryPreviewSection />
       </Suspense>
 
-      {/* 9 — Final CTA */}
+      {/* 12 — Final CTA */}
       <Suspense fallback={<SectionFallback />}>
         <FinalCtaSection />
       </Suspense>
