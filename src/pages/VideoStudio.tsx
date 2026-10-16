@@ -332,16 +332,21 @@ export default function VideoStudio() {
       budgetMode,
     };
 
-    // Create job: auth users try DB persist + edge function; falls back to
-    // local simulation automatically if DB tables don't exist yet.
+    // Create a real queued job. Never show a sample video after infrastructure errors.
     const job = user
       ? await createVideoJob(request, user.id)
       : createVideoJobSync(request);
 
-    // ALWAYS subscribe to in-memory job updates.
-    // Works for BOTH paths:
-    //   - Local simulation calls notify() directly
-    //   - DB polling calls pollJobFromDB() which syncs to cache + calls notify()
+    // A failed insert or missing login is reported immediately, not queued.
+    if (job.status === "failed") {
+      setJobs((prev) => [job, ...prev]);
+      toast.error(job.error || "Unable to start video generation");
+      setCreating(false);
+      return;
+    }
+
+    // Listen for local cache updates; DB polling synchronizes authoritative
+    // server progress into the cache and notifies subscribers.
     const storyTitle = selectedStory.title;
     const unsub = subscribeVideoJob(job.id, (updated) => {
       setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
