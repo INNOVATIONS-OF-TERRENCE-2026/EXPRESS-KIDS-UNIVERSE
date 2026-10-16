@@ -6,9 +6,7 @@
  *   - Edge function is invoked for real pipeline processing
  *   - Polling reads status from DB
  *
- * Fallback (no auth / Supabase error):
- *   - In-memory simulation preserved for DEV/demo mode
- *   - Uses a public demo video URL on completion
+ * On failure: show an explicit error; never substitute an unrelated demo video.
  */
 
 import type { VideoJob, VideoJobRequest, VideoJobStatus } from "./videoJobTypes";
@@ -18,11 +16,6 @@ import { supabase } from "@/integrations/supabase/client";
 /* ── In-memory store (cache + fallback) ── */
 const jobs = new Map<string, VideoJob>();
 const listeners = new Map<string, Set<(job: VideoJob) => void>>();
-
-const DEMO_VIDEO_URL =
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-const DEMO_POSTER_URL =
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg";
 
 function generateId(): string {
   return `vjob_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -50,116 +43,106 @@ function dbRowToJob(row: Record<string, unknown>): VideoJob {
   };
 }
 
-/* ── Simulated pipeline (DEV / guest fallback) ── */
-function simulatePipeline(jobId: string) {
-  const steps: { status: VideoJobStatus; label: string; delay: number; progress: number }[] = [
-    { status: "processing", label: "Analyzing story scenes…", delay: 2000, progress: 10 },
-    { status: "processing", label: "Generating voice narration…", delay: 3000, progress: 25 },
-    { status: "processing", label: "Composing soundtrack…", delay: 2500, progress: 40 },
-    { status: "rendering", label: "Rendering scene 1/6…", delay: 2000, progress: 50 },
-    { status: "rendering", label: "Rendering scene 3/6…", delay: 2000, progress: 65 },
-    { status: "rendering", label: "Rendering scene 6/6…", delay: 2000, progress: 80 },
-    { status: "encoding", label: "Encoding final video…", delay: 3000, progress: 92 },
-    { status: "complete", label: "Ready to watch!", delay: 1500, progress: 100 },
-  ];
-
-  let elapsed = 0;
-  steps.forEach(({ status, label, delay, progress }) => {
-    elapsed += delay;
-    setTimeout(() => {
-      const job = jobs.get(jobId);
-      if (!job || job.status === "failed") return;
-      job.status = status;
-      job.stepLabel = label;
-      job.progress = progress;
-      job.updatedAt = Date.now();
-      if (status === "complete") {
-        job.outputUrl = DEMO_VIDEO_URL;
-        job.thumbnailUrl = DEMO_POSTER_URL;
-      }
-      notify(jobId);
-    }, elapsed);
-  });
+/** Fail visibly; do not manufacture a completed video. */
+function markJobFailed(jobId: string, message: string) {
+  const job = jobs.get(jobId);
+  if (!job || job.status === "complete" || job.status === "failed") return;
+  job.status = "failed";
+  job.error = message;
+  job.stepLabel = "Generation failed";
+  job.updatedAt = Date.now();
+  notify(jobId);
 }
 
-/** Create a new video job (async — persists to DB when possible) */
+/** Handle invocation errors without clobbering a server job already in progress. */
+async function handleInvocationFailure(jobId: string, userId: string) {
+  const message = "Unable to start video generation. Please try again.";
+  try {
+    const latest = await pollJobFromDB(jobId);
+    if (latest && latest.status !== "queued") return;
+
+    const { data: updated, error } = await supabase.from("video_jobs")
+      .update({ status: "failed", error: message, step_label: "Generation failed" })
+      .eq("id", jobId)
+      .eq("user_id", userId)
+      .eq("status", "queued")
+      .select("id")
+      .maybeSingle();
+
+    if (updated || error) markJobFailed(jobId, message);
+    else await pollJobFromDB(jobId);
+  } catch {
+    markJobFailed(jobId, message);
+  }
+}
+
+/** Create a real video job, or return an explicit failure. */
 export async function createVideoJob(
   request: VideoJobRequest,
   userId?: string,
 ): Promise<VideoJob> {
   const id = generateId();
   const job: VideoJob = {
-    id,
-    request,
-    status: "queued",
-    progress: 0,
-    stepLabel: "Queued…",
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id, request, status: "queued", progress: 0, stepLabel: "Queued…",
+    createdAt: Date.now(), updatedAt: Date.now(),
   };
   jobs.set(id, job);
 
-  if (userId) {
-    try {
-      const { error: insertErr } = await supabase.from("video_jobs").insert({
-        id,
-        user_id: userId,
-        request: request as unknown as Json,
-        status: "queued",
-        progress: 0,
-        step_label: "Queued…",
-      });
-
-      // If DB table doesn't exist or RLS blocks → fall back to simulation
-      if (insertErr) throw insertErr;
-
-      // Fire-and-forget edge function invocation
-      supabase.functions
-        .invoke("generate-video-episode", {
-          body: {
-            jobId: id,
-            storyId: request.storyId,
-            storyTitle: request.storyTitle,
-            duration: request.duration,
-            provider: request.provider,
-            voiceAssignments: request.voiceAssignments,
-            musicStyle: request.musicStyle,
-            pacingMode: request.pacingMode || "story",
-            budgetMode: request.budgetMode || "standard",
-          },
-        })
-        .catch((err) => {
-          if (import.meta.env.DEV) console.warn("[VideoJobStore] Edge invoke failed:", err);
-          // Edge function failed after DB insert — start local simulation as safety net
-          // If the edge function recovers, DB polling will override simulation state
-          setTimeout(() => simulatePipeline(id), 1000);
-        });
-    } catch (err) {
-      if (import.meta.env.DEV) console.warn("[VideoJobStore] DB insert failed, using simulation:", err);
-      setTimeout(() => simulatePipeline(id), 1000);
-    }
-  } else {
-    // Guest — pure local simulation
-    setTimeout(() => simulatePipeline(id), 1000);
+  if (!userId) {
+    markJobFailed(id, "Sign in to generate a personalized episode.");
+    return { ...job };
   }
+
+  try {
+    const { error: insertErr } = await supabase.from("video_jobs").insert({
+      id,
+      user_id: userId,
+      request: request as unknown as Json,
+      status: "queued",
+      progress: 0,
+      step_label: "Queued…",
+    });
+    if (insertErr) throw insertErr;
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn("[VideoJobStore] DB insert failed:", err);
+    markJobFailed(id, "Unable to queue video generation. Please try again.");
+    return { ...job };
+  }
+
+  // Both a rejected promise and FunctionsResponse.error are failures.
+  // Do not block the UI while the backend creates the composition.
+  void supabase.functions.invoke("generate-video-episode", {
+    body: {
+      jobId: id,
+      storyId: request.storyId,
+      storyTitle: request.storyTitle,
+      duration: request.duration,
+      provider: request.provider,
+      voiceAssignments: request.voiceAssignments,
+      musicStyle: request.musicStyle,
+      pacingMode: request.pacingMode || "story",
+      budgetMode: request.budgetMode || "standard",
+    },
+  }).then(({ error }) => {
+    if (error) return handleInvocationFailure(id, userId);
+  }).catch((err) => {
+    if (import.meta.env.DEV) console.warn("[VideoJobStore] Edge invoke failed:", err);
+    return handleInvocationFailure(id, userId);
+  });
 
   return { ...job };
 }
 
-/** Sync version for backward compatibility (always simulates) */
+/** Legacy synchronous entry point: no fake guest videos. */
 export function createVideoJobSync(request: VideoJobRequest): VideoJob {
   const id = generateId();
   const job: VideoJob = {
-    id,
-    request,
-    status: "queued",
-    progress: 0,
-    stepLabel: "Queued…",
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id, request, status: "failed", progress: 0,
+    stepLabel: "Generation failed",
+    error: "Sign in to generate a personalized episode.",
+    createdAt: Date.now(), updatedAt: Date.now(),
   };
   jobs.set(id, job);
-  setTimeout(() => simulatePipeline(id), 1000);
   return { ...job };
 }
 

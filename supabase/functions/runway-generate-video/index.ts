@@ -94,6 +94,24 @@ serve(async (req) => {
       return jsonResp({ error: "Missing promptText or promptImage" }, 400);
     }
 
+    if (jobId !== undefined && (typeof jobId !== "string" || !jobId.trim())) {
+      return jsonResp({ error: "Invalid jobId" }, 400);
+    }
+
+    // A supplied job ID is untrusted. The admin client bypasses RLS, so
+    // refuse unrelated jobs before spending video-generation credits.
+    if (jobId) {
+      const { data: ownedJob, error: lookupError } = await supabaseAdmin
+        .from("video_jobs")
+        .select("id")
+        .eq("id", jobId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (lookupError) return jsonResp({ error: "Unable to verify video job" }, 500);
+      if (!ownedJob) return jsonResp({ error: "Video job not found" }, 404);
+    }
+
     /* ── Ensure storage bucket ── */
     await supabaseAdmin.storage
       .createBucket("video-assets", { public: true, fileSizeLimit: 104857600 })

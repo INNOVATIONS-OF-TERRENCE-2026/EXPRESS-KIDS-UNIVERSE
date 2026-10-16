@@ -85,7 +85,26 @@ serve(async (req) => {
     const validBudgetModes = ["eco", "standard", "studio"];
     const budget = validBudgetModes.includes(budgetMode) ? budgetMode : "standard";
 
-    if (!jobId || !storyId) return jsonError("Missing jobId or storyId", 400);
+    if (typeof jobId !== "string" || !jobId.trim() ||
+        typeof storyId !== "string" || !storyId.trim())
+      return jsonError("Missing or invalid jobId or storyId", 400);
+
+    // The service-role client bypasses RLS. Confirm ownership and the
+    // persisted story/job association before updating a job or spending
+    // provider credits on generation.
+    const { data: ownedJob, error: jobLookupError } = await supabaseAdmin
+      .from("video_jobs")
+      .select("id, status, request")
+      .eq("id", jobId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (jobLookupError) return jsonError("Unable to verify video job", 500);
+    if (!ownedJob) return jsonError("Video job not found", 404);
+    if (ownedJob.status !== "queued")
+      return jsonError("Video job has already started", 409);
+    if ((ownedJob.request as { storyId?: string } | null)?.storyId !== storyId)
+      return jsonError("Video job does not belong to the requested story", 400);
 
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
 
@@ -102,6 +121,7 @@ serve(async (req) => {
       .from("stories")
       .select("id, title, story_text, theme, child_name, reading_level")
       .eq("id", storyId)
+      .eq("user_id", userId)
       .single();
 
     if (storyErr || !story) {
